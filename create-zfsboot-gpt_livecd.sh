@@ -14,28 +14,58 @@
 # -s sets the swapsize to create, you can use m/M for megabyte or g/G for gigabyte
 # -n sets the name of the zpool to create
 # -f sets the ftp-server used for getting the freebsd packages, default is ftp.freebsd.org
+# -m sets the zpool raid-mode, stripe (only single disk), mirror (at least two disks) and raidz (at least three disks)
+# -d sets local directory to get distribution packages from
 #
 # You can use more than one device, creating a mirror. To specify more than one device, use multiple -p options. 
 # eg. create-zfsboot-gpt_livecd.sh -p ad0 -p ad1 -s 512m -n tank
 
 ftphost='ftp.freebsd.org'
 
-usage="Usage: create-zfsboot-gpt_livecd.sh -p <geom_provider> -s <swapsize> -n <zpoolname> -f <ftphost>"
+usage="Usage: create-zfsboot-gpt_livecd.sh -p <geom_provider> -s <swapsize> -n <zpoolname> -f <ftphost> -m <zpool-raidmode> -d <distdir>"
 
 exerr () { echo -e "$*" >&2 ; exit 1; }
 
-while getopts p:s:n:f: arg
+while getopts p:s:n:f:m:d: arg
 do case ${arg} in
   p) provider="$provider ${OPTARG}";;
   s) swapsize=${OPTARG};;
-  n) pool=${OPTARG};;
+  n) poolname=${OPTARG};;
   f) ftphost=${OPTARG};;
+  m) mode=${OPTARG};;
+  d) distdir=${OPTARG};;
   ?) exerr ${usage};;
 esac; done; shift $(( ${OPTIND} - 1 ))
 
-if [ -z "$pool" ] || [ -z "$provider" ] ; then
+if [ -z "$poolname" ] || [ -z "$provider" ] ; then
   exerr ${usage}
   exit
+fi
+
+# count the number of providers
+devcount=`echo ${provider} |wc -w`
+
+# set our default zpool mirror-mode
+if [ -z "$mode" ]; then
+    if [ "$devcount" -gt "1" ]; then
+        mode='mirror'
+    else
+        mode='stripe'
+    fi
+fi
+
+# check the settings for the users that want to set the mode on their own
+if [ "$devcount" -eq "1" -a "$mode" = "mirror" ]; then
+    echo "A mirror needs at least two disks!"
+    exit
+fi
+if [ "$devcount" -lt "3" -a "$mode" = "raidz" ]; then
+    echo "Sorry, you need at least three disks for a zfs raidz!"
+    exit
+fi
+if [ "$devcount" -gt "1" -a "$mode" = "stripe" ]; then
+    echo "Sorry, booting from a multiple-disk stripe is not supported!"
+    exit
 fi
 
 echo "Creating GPT label on disks:"
@@ -51,8 +81,6 @@ done
 
 echo
 sleep 1
-
-devcount=`echo ${provider} |wc -w`
 
 smallest_disk_size='0'
 echo "Checking disks for size:"
@@ -118,85 +146,105 @@ kldload /mnt2/boot/kernel/zfs.ko
 mkdir /boot/zfs
 
 # Create the pool and the rootfs
-if [ "$devcount" -gt 1 ]; then
-  zpool create -f $pool mirror ${labellist}
-else
-  zpool create -f $pool ${labellist}
+
+if [ "$mode" = "raidz" ]; then
+  zpool create -f $poolname raidz ${labellist}
+fi
+if [ "$mode" = "mirror" ]; then
+  zpool create -f $poolname mirror ${labellist}
+fi
+if [ "$mode" = "stripe" ]; then
+  zpool create -f $poolname ${labellist}
 fi
 
-if [ `zpool list -H -o name $pool` != "$pool" ]; then
-  echo "ERROR: Could not create zpool $pool"
+if [ `zpool list -H -o name $poolname` != "$poolname" ]; then
+  echo "ERROR: Could not create zpool $poolname"
   exit
 fi
 
 sleep 2
 
-zfs create -o compression=lzjb -p $pool/ROOT/$pool
+if [ "$mode" = "raidz" ]; then
+  rootzfs="$poolname"
+else
+  rootzfs="$poolname/ROOT/$poolname"
+fi
+
+zfs create -o compression=lzjb -p $rootzfs
 
 # Now we create some stuff we also would like to have in seperate filesystems
 for filesystem in var usr-src usr-obj usr-local tmp; do
-   echo "Creating $pool/$filesystem"
-   zfs create $pool/$filesystem
+   echo "Creating $poolname/$filesystem"
+   zfs create $poolname/$filesystem
    if [ "$filesystem" = "tmp" ]; then
-     chmod 1777 /$pool/tmp
+     chmod 1777 /$poolname/tmp
    fi
-   zfs umount $pool/$filesystem
+   zfs umount $poolname/$filesystem
    _filesystem=`echo $filesystem | sed s:-:\/:g`
-   zfs set mountpoint=/${_filesystem} $pool/${filesystem}
+   zfs set mountpoint=/${_filesystem} $poolname/${filesystem}
 done
 
-mkdir /$pool/ROOT/$pool/usr
+mkdir /$rootzfs/usr
 
-zfs set mountpoint=/$pool/ROOT/$pool/usr/src $pool/usr-src
-zfs mount $pool/usr-src
+zfs set mountpoint=/$rootzfs/usr/src $poolname/usr-src
+zfs mount $poolname/usr-src
 
-zfs set mountpoint=/$pool/ROOT/$pool/usr/obj $pool/usr-obj
-zfs mount $pool/usr-obj
+zfs set mountpoint=/$rootzfs/usr/obj $poolname/usr-obj
+zfs mount $poolname/usr-obj
 
-zfs set mountpoint=/$pool/ROOT/$pool/var $pool/var
-zfs mount $pool/var
+zfs set mountpoint=/$rootzfs/var $poolname/var
+zfs mount $poolname/var
 
 echo ####################################
-zfs create $pool/installdata
-cd /$pool/installdata
-
-if [ `pwd` != "/$pool/installdata" ]; then
-  echo "ERROR: Could not change directoy to /$pool/installdata. Aborting."
-  exit
+if [ -z "$distdir" ]; then
+    echo "Now installing base, ssys, slib and kernels via $ftphost. This may take a while, depending on your network connection."
+    zfs create $poolname/installdata
+    cd /$poolname/installdata
+    
+    if [ `pwd` != "/$poolname/installdata" ]; then
+        echo "ERROR: Could not change directoy to /$poolname/installdata. Aborting."
+        exit
+    fi
+    
+    sleep 2
+    arch=`uname -p`
+    release=`uname -r`
+    echo
+    echo "Fetching FreeBSD ${release}-${arch}:"
+    for pkg in base kernels; do
+        mkdir /$poolname/installdata/${pkg}
+        cd /$poolname/installdata/${pkg}
+        echo " -> $pkg"
+        ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}/*"
+    done
+    mkdir /$poolname/installdata/src
+    cd /$poolname/installdata/src/
+    echo " -> ssys"
+    ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/ssys*"
+    echo " -> slib"
+    ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/slib*"
+    ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/install.sh"
+    distdir="/$poolname/installdata"
+else
+    echo "Using distribution packages from $distdir"
 fi
 
-echo "Now installing base, ssys, slib and kernels via $ftphost. This may take a while, depending on your network connection."
-sleep 2
-arch=`uname -p`
-release=`uname -r`
-echo
-echo "Fetching FreeBSD ${release}-${arch}:"
-for pkg in base kernels; do
-    mkdir /$pool/installdata/${pkg}
-    cd /$pool/installdata/${pkg}
-    echo " -> $pkg"
-    ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}/*"
-done
-mkdir /$pool/installdata/src
-cd /$pool/installdata/src/
-echo " -> ssys"
-ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/ssys*"
-echo " -> slib"
-ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/slib*"
-ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/install.sh"
-
-export DESTDIR=/$pool/ROOT/$pool/
+export DESTDIR=/$rootzfs/
 
 echo
 echo "Extracting base into $DESTDIR"
-cd /$pool/installdata/base ; cat base.?? | tar --unlink -xpzf - -C ${DESTDIR:-/}
-cd /$pool/installdata/src ;     sh ./install.sh sys lib
+cd /$distdir/base ; cat base.?? | tar --unlink -xpzf - -C ${DESTDIR:-/}
+cd /$distdir/src ;     sh ./install.sh sys lib
 echo "Extracting kernel into ${DESTDIR}boot"
-cd /$pool/installdata/kernels ; sh ./install.sh generic
+cd /$distdir/kernels ; sh ./install.sh generic
 
-cd /$pool/ROOT/$pool/boot ; cp -rp GENERIC/* /$pool/ROOT/$pool/boot/kernel/
+cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
 
-echo 'LOADER_ZFS_SUPPORT=YES' >> /$pool/ROOT/$pool/etc/make.conf
+if [ -z "$distdir" ]; then
+    zfs destroy $poolname/installdata
+fi
+
+echo 'LOADER_ZFS_SUPPORT=YES' >> /$rootzfs/etc/make.conf
 
 echo
 echo "I will now build the ZFS aware boot-loader, expect some funky compile output and ignore the errors."
@@ -214,52 +262,55 @@ cd /usr/src/sys/boot/i386/zfsboot; make -s install
 cd /usr/src/sys/boot/i386/gptzfsboot; make -s install 
 cd /usr/src/sys/boot/i386/pmbr; make -s install 
 umount /dev 
-exit' > /$pool/ROOT/$pool/tmp/chroot-command.sh
-chmod +x /$pool/ROOT/$pool/tmp/chroot-command.sh
-chroot /$pool/ROOT/$pool/ /tmp/chroot-command.sh
-rm /$pool/ROOT/$pool/tmp/chroot-command.sh
-zfs destroy $pool/installdata
+exit' > /$rootzfs/tmp/chroot-command.sh
+chmod +x /$rootzfs/tmp/chroot-command.sh
+chroot /$rootzfs/ /tmp/chroot-command.sh
+rm /$rootzfs/tmp/chroot-command.sh
 
 echo
 echo "Installing new bootcode on disks: "
 for disk in $provider; do
   echo " ->  ${disk}"
-  gpart bootcode -b /$pool/ROOT/$pool/boot/pmbr -p /$pool/ROOT/$pool/boot/gptzfsboot -i 1 $disk > /dev/null
+  gpart bootcode -b /$rootzfs/boot/pmbr -p /$rootzfs/boot/gptzfsboot -i 1 $disk > /dev/null
 done
 echo
 
 # We need to fix /var so it is mounted correct when booting from ZFS
-zfs umount $pool/var
-zfs set mountpoint=/var $pool/var
+zfs umount $poolname/var
+zfs set mountpoint=/var $poolname/var
 
 # We need to fix /usr/src so it is mounted correct when booting from ZFS
-zfs umount $pool/usr-src
-zfs set mountpoint=/usr/src $pool/usr-src
+zfs umount $poolname/usr-src
+zfs set mountpoint=/usr/src $poolname/usr-src
 
 # We need to fix /usr/obj so it is mounted correct when booting from ZFS
-zfs umount $pool/usr-obj
-zfs set mountpoint=/usr/obj $pool/usr-obj
+zfs umount $poolname/usr-obj
+zfs set mountpoint=/usr/obj $poolname/usr-obj
 
 # Enable the new filesystem as zpool bootfs
-zpool set bootfs=$pool/ROOT/$pool $pool
+if [ "$mode" != "raidz" ]; then
+  zpool set bootfs=$rootzfs $poolname
+else
+  zfs set mountpoint=legacy $rootzfs
+fi
 
 # We still need to tell the kernel from where to mount its root-filesystem
-echo 'zfs_load="YES"' >> /$pool/ROOT/$pool/boot/loader.conf
-echo "vfs.root.mountfrom=\"zfs:$pool/ROOT/$pool\"" >> /$pool/ROOT/$pool/boot/loader.conf
-echo 'zfs_enable="YES"' >> /$pool/ROOT/$pool/etc/rc.conf
-touch /$pool/ROOT/$pool/etc/fstab
+echo 'zfs_load="YES"' >> /$rootzfs/boot/loader.conf
+echo "vfs.root.mountfrom=\"zfs:$rootzfs\"" >> /$rootzfs/boot/loader.conf
+echo 'zfs_enable="YES"' >> /$rootzfs/etc/rc.conf
+touch /$rootzfs/etc/fstab
 
 if [ "$swapsize" ]; then
   echo "Adding swap partitions in fstab:"
   for disk in $provider; do
     echo " ->  /dev/gpt/swap-${disk}"
-    echo "/dev/gpt/swap-${disk} none swap sw 0 0" >> /$pool/ROOT/$pool/etc/fstab
+    echo "/dev/gpt/swap-${disk} none swap sw 0 0" >> /$rootzfs/etc/fstab
   done
 fi
 echo
 
 # Copy the zpool.cache to the new filesystem
-cp /boot/zfs/zpool.cache /$pool/ROOT/$pool/boot/zfs/zpool.cache
+cp /boot/zfs/zpool.cache /$rootzfs/boot/zfs/zpool.cache
 
 sleep 5
 
