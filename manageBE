@@ -133,8 +133,8 @@ case ${type} in
                     be_active='yes'	
                 fi
                 be_nextboot='no'
-                if [ "${be_filesystem}" = "${bootfs}" ]; then
-                    be_nextboot='yes'	
+                if [ "${be_filesystem}" = "${zpool_bootfs}" ]; then
+                    be_nextboot='yes'
                 fi
 
                 be_space=`/sbin/zfs list -H -o referenced $be_filesystem`
