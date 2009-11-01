@@ -171,6 +171,7 @@ else
 fi
 
 zfs create -o compression=lzjb -p $rootzfs
+zfs set freebsd:boot-environment=1 $rootzfs
 
 # Now we create some stuff we also would like to have in seperate filesystems
 for filesystem in var usr-src usr-obj usr-local tmp; do
