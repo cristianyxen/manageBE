@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# manageBE [activate|create|delete|list] {params}
+# manageBE [activate|create|delete|list|freebsd-update|freebsd-upgrade] {params}
 
 type=$1
 
@@ -8,7 +8,9 @@ mgm="manageBE"
 usage_activate="Usage: ${mgm} activate -n <BE> -p <pool>"
 usage_create="Usage: ${mgm} create -n <newBE> -s <sourceBE> -p <pool>"
 usage_delete="Usage: ${mgm} delete -n <BE> -p <pool> -o [yes|no]"
-usage_upgrade="Usage: ${mgm} upgrade -n <BE> -p <pool> {KERNCONF=GENERIC}"
+usage_upgrade="Usage: ${mgm} src-upgrade -n <BE> -p <pool> {KERNCONF=GENERIC}"
+usage_freebsd_update="Usage: ${mgm} freebsd-update -n <BE> -p <pool>"
+usage_freebsd_upgrade="Usage: ${mgm} freebsd-upgrade -n <BE> -p <pool> -r <release>"
 
 error_delete="If filesystem has dependent clones, please promote them via 'zfs promote <filesystem>' and re-run ${mgm} delete"
 
@@ -37,8 +39,17 @@ case ${type} in
 
         check_for_be_existence
 
+        old_bootfs=`/sbin/zpool list -H -o bootfs ${pool} |sed s:^$pool/ROOT/::`
         /sbin/zpool set bootfs=${pool}/ROOT/${bootfs} ${pool}
+
         /sbin/zfs promote ${pool}/ROOT/${bootfs}
+        /sbin/zfs promote ${pool}/ROOT/freebsd-update/${bootfs}
+
+        /sbin/zfs unmount ${pool}/ROOT/freebsd-update/${bootfs}
+        /sbin/zfs unmount ${pool}/ROOT/freebsd-update/${old_bootfs}
+
+        /sbin/zfs set mountpoint=/$pool/ROOT/${old_bootfs}/var/db/freebsd-update ${pool}/ROOT/freebsd-update/${old_bootfs}
+        /sbin/zfs set mountpoint=/var/db/freebsd-update ${pool}/ROOT/freebsd-update/${bootfs}
     ;;
     create)
         # create a boot-environment
@@ -54,9 +65,18 @@ case ${type} in
 
         check_for_be_existence
 
+        # create snapshot of the source BE
         /sbin/zfs snapshot ${pool}/ROOT/${bootfs}@${new_bootfs}
+        /sbin/zfs snapshot ${pool}/ROOT/freebsd-update/${bootfs}@${new_bootfs}
+
+        # clone the snapshots to create the new BE
         /sbin/zfs clone ${pool}/ROOT/${bootfs}@${new_bootfs} ${pool}/ROOT/${new_bootfs}
+        /sbin/zfs clone ${pool}/ROOT/freebsd-update/${bootfs}@${new_bootfs} ${pool}/ROOT/freebsd-update/${new_bootfs}
+
+        # mark the BE as boot-environment and mount the freebsd-update dir in the correct path
         /sbin/zfs set freebsd:boot-environment=1 ${pool}/ROOT/${new_bootfs}
+        /sbin/zfs set mountpoint=/${pool}/ROOT/${new_bootfs}/var/db/freebsd-update ${pool}/ROOT/freebsd-update/${new_bootfs}
+
         grep -v '^vfs.root.mountfrom' /boot/loader.conf > /${pool}/ROOT/${new_bootfs}/boot/loader.conf
         echo vfs.root.mountfrom=\"zfs:${pool}/ROOT/${new_bootfs}\" >> /${pool}/ROOT/${new_bootfs}/boot/loader.conf
         echo "Install new kernel with option 'DESTDIR=/${pool}/ROOT/${new_bootfs}/' and run '${mgm} activate -n ${new_bootfs} -p ${pool}'"
@@ -125,7 +145,7 @@ case ${type} in
 
         for be_filesystem in `/sbin/zfs list -H -S creation -o name -r $pool/ROOT |grep -v "^$pool/ROOT\$"`; do
 
-            if [ `/sbin/zfs list -H -o freebsd:boot-environment ${be_filesystem}` = "1" ]; then
+            if [ `/sbin/zfs list -H -o freebsd:boot-environment ${be_filesystem}` -eq 1 ]; then
                 be_name=`echo ${be_filesystem}|sed s:^$pool/ROOT/::`
 
                 be_active='no'	
@@ -159,8 +179,8 @@ case ${type} in
         echo
     done
     ;;
-    upgrade)
-        # upgrade a boot-environment
+    src-upgrade)
+        # upgrade a boot-environment using source
 
         shift; while getopts :n:p: arg; do case ${arg} in
             n) bootfs=${OPTARG};;
@@ -175,7 +195,48 @@ case ${type} in
         export DESTDIR="/${pool}/ROOT/${bootfs}/"
         echo "make -s installkernel DESTDIR=${DESTDIR} $1"
         echo "make -s installworld DESTDIR=${DESTDIR}"
-    echo "mergemaster -U -D ${DESTDIR}"
+        echo "mergemaster -U -D ${DESTDIR}"
+    ;;
+    freebsd-update)
+        # update a boot-environment using freebsd-update
+
+        shift; while getopts :n:p: arg; do case ${arg} in
+            n) bootfs=${OPTARG};;
+            p) pool=${OPTARG};;
+            ?) exerr ${usage_upgrade};;
+        esac; done; shift $(( ${OPTIND} - 1 ))
+
+        [ "${bootfs}" -a "${pool}" -a ${release} ] || exerr ${usage_freebsd_update}
+
+        check_for_be_existence
+        
+        chroot /${bootfs} mount -t devfs devfs /dev
+        chroot /${bootfs} /usr/sbin/freebsd-update fetch
+        chroot /${bootfs} /usr/sbin/freebsd-update install > /dev/null
+        chroot /${bootfs} umount /dev
+
+        echo "Please activate ${bootfs} via manageBE and reboot."
+    ;;
+    freebsd-upgrade)
+        # upgrade a boot-environment using freebsd-update
+
+        shift; while getopts :n:p:r: arg; do case ${arg} in
+            n) bootfs=${OPTARG};;
+            p) pool=${OPTARG};;
+            r) release=${OPTARG};;
+            ?) exerr ${usage_upgrade};;
+        esac; done; shift $(( ${OPTIND} - 1 ))
+
+        [ "${bootfs}" -a "${pool}" -a ${release} ] || exerr ${usage_freebsd_upgrade}
+
+        check_for_be_existence
+        
+        chroot /${bootfs} mount -t devfs devfs /dev
+        chroot /${bootfs} /usr/sbin/freebsd-update upgrade -r ${release}
+        chroot /${bootfs} /usr/sbin/freebsd-update install > /dev/null
+        chroot /${bootfs} umount /dev
+
+        echo "Please activate ${bootfs} via manageBE and reboot. After rebooting, freebsd-update needs to be run again to install the new userland components, and the system needs to be rebooted again"
     ;;
     *)
         echo echo "Usage: ${mgm} [activate|create|delete|list] {params}"
