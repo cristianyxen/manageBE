@@ -11,7 +11,8 @@
 # Execute the script with the following parameter:
 #
 # -p sets the geom provider to use
-# -s sets the swapsize to create, you can use m/M for megabyte or g/G for gigabyte
+# -s sets the swap_partition_size to create, you can use m/M for megabyte or g/G for gigabyte
+# -S sets the zfs_partition_size to create, you can use m/M for megabyte or g/G for gigabyte, default is all available size
 # -n sets the name of the zpool to create
 # -f sets the ftp-server used for getting the freebsd packages, default is ftp.freebsd.org
 # -m sets the zpool raid-mode, stripe (only single disk), mirror (at least two disks) and raidz (at least three disks)
@@ -22,14 +23,15 @@
 
 ftphost='ftp.freebsd.org'
 
-usage="Usage: create-zfsboot-gpt_livecd.sh -p <geom_provider> -s <swapsize> -n <zpoolname> -f <ftphost> -m <zpool-raidmode> -d <distdir>"
+usage="Usage: create-zfsboot-gpt_livecd.sh -p <geom_provider> -s <swap_partition_size> -S <zfs_partition_size> -n <zpoolname> -m <zpool-raidmode> -d <distdir> -f <ftphost>"
 
 exerr () { echo -e "$*" >&2 ; exit 1; }
 
-while getopts p:s:n:f:m:d: arg
+while getopts p:s:S:n:f:m:d: arg
 do case ${arg} in
   p) provider="$provider ${OPTARG}";;
-  s) swapsize=${OPTARG};;
+  s) swap_partition_size=${OPTARG};;
+  S) zfs_partition_size=${OPTARG};;
   n) poolname=${OPTARG};;
   f) ftphost=${OPTARG};;
   m) mode=${OPTARG};;
@@ -68,6 +70,25 @@ if [ "$devcount" -gt "1" -a "$mode" = "stripe" ]; then
     exit
 fi
 
+if [ ! -z "${zfs_partition_size}" ]; then
+    echo "WARNING: You used -S to set the zfs_partition_size, I will not check if this size fits the disks you use!"
+fi
+
+check_size () {
+  ref_disk_size=`gpart list $ref_disk | grep 'Mediasize' | awk '{print $2}'`
+  if [ ! -z "${zfs_partition_size}" ]; then
+    _zfs_partition_size=`echo "${zfs_partition_size}"|tr GMKBWX gmkbwx|sed -Ees:g:km:g -es:m:kk:g -es:k:"*2b":g -es:b:"*128w":g -es:w:"*4 ":g -e"s:(^|[^0-9])0x:\1\0X:g" -ey:x:"*":|bc |sed "s:\.[0-9]*$::g"`
+  fi
+  _swap_partition_size=`echo "${swap_partition_size}"|tr GMKBWX gmkbwx|sed -Ees:g:km:g -es:m:kk:g -es:k:"*2b":g -es:b:"*128w":g -es:w:"*4 ":g -e"s:(^|[^0-9])0x:\1\0X:g" -ey:x:"*":|bc |sed "s:\.[0-9]*$::g"`
+  total_size=$((${_zfs_partition_size}+${_swap_partition_size}))
+  if [ "${total_size}" -gt "${ref_disk_size}" ]; then
+    echo "This will not fit!"
+    exit
+  else
+  fi
+}
+
+
 echo "Creating GPT label on disks:"
 for disk in $provider; do
   if [ ! -e "/dev/$disk" ]; then
@@ -93,6 +114,9 @@ for disk in $provider; do
     fi
 done
 
+# check if the size fits
+check_size
+
 echo
 echo "NOTICE: Using $ref_disk (smallest or only disk) as reference disk for calculation offsets"
 echo
@@ -107,11 +131,11 @@ done
 echo
 sleep 2
 
-if [ "$swapsize" ]; then
-  echo "Creating GPT swap partition on with size ${swapsize} on disks: "
+if [ "$swap_partition_size" ]; then
+  echo "Creating GPT swap partition on with size ${swap_partition_size} on disks: "
   for disk in $provider; do
     echo " ->  ${disk}"
-    gpart add -s $swapsize -t freebsd-swap -l swap-${disk} ${disk} > /dev/null
+    gpart add -s $swap_partition_size -t freebsd-swap -l swap-${disk} ${disk} > /dev/null
   done
 fi
 
@@ -119,7 +143,11 @@ echo
 sleep 2
 
 offset=`gpart show $ref_disk | grep '\- free \-' | awk '{print $1}'`
-size=`gpart show $ref_disk | grep '\- free \-' | awk '{print $2}'`
+if [ -z "${zfs_partition_size}" ]; then
+  size=`gpart show $ref_disk | grep '\- free \-' | awk '{print $2}'`
+else
+  size=${zfs_partition_size}
+fi
 
 echo "Creating GPT ZFS partition on with size ${size} on disks: "
 for disk in $provider; do
@@ -170,7 +198,7 @@ else
   rootzfs="$poolname/ROOT/$poolname"
 fi
 
-zfs create -o compression=lzjb -p $rootzfs
+zfs create -p $rootzfs
 zfs set freebsd:boot-environment=1 $rootzfs
 
 # Now we create some stuff we also would like to have in seperate filesystems
@@ -301,7 +329,7 @@ echo "vfs.root.mountfrom=\"zfs:$rootzfs\"" >> /$rootzfs/boot/loader.conf
 echo 'zfs_enable="YES"' >> /$rootzfs/etc/rc.conf
 touch /$rootzfs/etc/fstab
 
-if [ "$swapsize" ]; then
+if [ "$swap_partition_size" ]; then
   echo "Adding swap partitions in fstab:"
   for disk in $provider; do
     echo " ->  /dev/gpt/swap-${disk}"
