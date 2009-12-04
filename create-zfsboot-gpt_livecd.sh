@@ -44,6 +44,11 @@ if [ -z "$poolname" ] || [ -z "$provider" ] ; then
   exit
 fi
 
+if [ "$distdir" -a ! -f "$distdir/base/install.sh" -o ! -f "$distdir/kernels/install.sh" -o ! -f "$distdir/src/install.sh"]; then
+  echo "Sorry, no distribution files found in ${distdir}!"
+  exit
+fi
+
 # count the number of providers
 devcount=`echo ${provider} |wc -w`
 
