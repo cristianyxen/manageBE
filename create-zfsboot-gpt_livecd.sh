@@ -4,10 +4,10 @@
 #
 # DISCLAIMER: Use at your own risk! Always make backups, don't blame me if this renders your system unusable or you lose any data! 
 # 
-# This only works with FreeBSD 8.0 (tested with 8.0-RC1), you have been warned!
+# This only works with FreeBSD 8.0 (tested with 8.0-RELEASE), you have been warned!
 #
 # Startup the FreeBSD livefs CD. Go into the Fixit console. Create /var/db if you want to use DHCP. Configure
-# your network settings. Fetch http://anonsvn.h3q.com/projects/freebsd-patches/export/70/manageBE/create-zfsboot-gpt_livecd.sh
+# your network settings. Fetch http://anonsvn.h3q.com/projects/freebsd-patches/export/71/manageBE/create-zfsboot-gpt_livecd.sh
 # Execute the script with the following parameter:
 #
 # -p sets the geom provider to use
@@ -44,7 +44,7 @@ if [ -z "$poolname" ] || [ -z "$provider" ] ; then
   exit
 fi
 
-if [ "$distdir" -a ! -f "$distdir/base/install.sh" -o ! -f "$distdir/kernels/install.sh" -o ! -f "$distdir/src/install.sh"]; then
+if [ "$distdir" -a ! -f "$distdir/base/install.sh" -o ! -f "$distdir/kernels/install.sh" -o ! -f "$distdir/src/install.sh" ]; then
   echo "Sorry, no distribution files found in ${distdir}!"
   exit
 fi
@@ -93,9 +93,14 @@ check_size () {
   fi
 }
 
+get_disk_labelname () {
+  label=${disk##*=}
+  disk=${disk%%=*}
+}
 
 echo "Creating GPT label on disks:"
 for disk in $provider; do
+  get_disk_labelname
   if [ ! -e "/dev/$disk" ]; then
     echo " -> ERROR: $disk does not exist"
     exit
@@ -111,12 +116,13 @@ sleep 1
 smallest_disk_size='0'
 echo "Checking disks for size:"
 for disk in $provider; do
-    disk_size=`gpart show $disk | grep '\- free \-' | awk '{print $2}'`
-    echo " -> $disk - total size $disk_size"
-    if [ "$smallest_disk_size" -gt "$disk_size" ] || [ "$smallest_disk_size" -eq "0" ]; then
-        smallest_disk_size=$disk_size
-        ref_disk=$disk
-    fi
+  get_disk_labelname
+  disk_size=`gpart show $disk | grep '\- free \-' | awk '{print $2}'`
+  echo " -> $disk - total size $disk_size"
+  if [ "$smallest_disk_size" -gt "$disk_size" ] || [ "$smallest_disk_size" -eq "0" ]; then
+    smallest_disk_size=$disk_size
+    ref_disk=$disk
+  fi
 done
 
 # check if the size fits
@@ -129,6 +135,7 @@ sleep 2
 
 echo "Creating GPT boot partition on disks:"
 for disk in $provider; do
+  get_disk_labelname
   echo " ->  ${disk}"
   gpart add -s 128 -t freebsd-boot $disk > /dev/null
 done
@@ -139,8 +146,9 @@ sleep 2
 if [ "$swap_partition_size" ]; then
   echo "Creating GPT swap partition on with size ${swap_partition_size} on disks: "
   for disk in $provider; do
-    echo " ->  ${disk}"
-    gpart add -s $swap_partition_size -t freebsd-swap -l swap-${disk} ${disk} > /dev/null
+    get_disk_labelname
+    echo " ->  ${disk} (Label: ${label})"
+    gpart add -s $swap_partition_size -t freebsd-swap -l swap-${label} ${disk} > /dev/null
   done
 fi
 
@@ -156,9 +164,10 @@ fi
 
 echo "Creating GPT ZFS partition on with size ${size} on disks: "
 for disk in $provider; do
-  echo " ->  ${disk}"
-  gpart add -b $offset -s $size -t freebsd-zfs -l system-${disk} ${disk} > /dev/null
-  labellist="${labellist} gpt/system-${disk}"
+  get_disk_labelname
+  echo " ->  ${disk} (Label: ${label})"
+  gpart add -b $offset -s $size -t freebsd-zfs -l system-${label} ${disk} > /dev/null
+  labellist="${labellist} gpt/system-${label}"
 done
 
 echo
@@ -166,6 +175,7 @@ sleep 2
 
 # Make first partition active so the BIOS boots from it
 for disk in $provider; do
+  get_disk_labelname
   echo 'a 1' | fdisk -f - $disk > /dev/null 2>&1
 done
 
@@ -304,6 +314,7 @@ rm /$rootzfs/tmp/chroot-command.sh
 echo
 echo "Installing new bootcode on disks: "
 for disk in $provider; do
+  get_disk_labelname
   echo " ->  ${disk}"
   gpart bootcode -b /$rootzfs/boot/pmbr -p /$rootzfs/boot/gptzfsboot -i 1 $disk > /dev/null
 done
@@ -337,8 +348,9 @@ touch /$rootzfs/etc/fstab
 if [ "$swap_partition_size" ]; then
   echo "Adding swap partitions in fstab:"
   for disk in $provider; do
-    echo " ->  /dev/gpt/swap-${disk}"
-    echo "/dev/gpt/swap-${disk} none swap sw 0 0" >> /$rootzfs/etc/fstab
+    get_disk_labelname
+    echo " ->  /dev/gpt/swap-${label}"
+    echo "/dev/gpt/swap-${label} none swap sw 0 0" >> /$rootzfs/etc/fstab
   done
 fi
 echo
