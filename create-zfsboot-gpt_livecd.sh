@@ -7,7 +7,7 @@
 # This only works with FreeBSD 8.0 (tested with 8.0-RELEASE), you have been warned!
 #
 # Startup the FreeBSD livefs CD. Go into the Fixit console. Create /var/db if you want to use DHCP. Configure
-# your network settings. Fetch http://anonsvn.h3q.com/projects/freebsd-patches/export/72/manageBE/create-zfsboot-gpt_livecd.sh
+# your network settings. Fetch http://anonsvn.h3q.com/projects/freebsd-patches/export/73/manageBE/create-zfsboot-gpt_livecd.sh
 # Execute the script with the following parameter:
 #
 # -p sets the geom provider to use, you can use multiple. Add a name for the GPT labels: -p ad4=black -p ad6=white
@@ -75,19 +75,17 @@ if [ "$devcount" -gt "1" -a "$mode" = "stripe" ]; then
     exit
 fi
 
-if [ ! -z "${zfs_partition_size}" ]; then
-    echo "WARNING: You used -S to set the zfs_partition_size, I will not check if this size fits the disks you use!"
-fi
-
 check_size () {
   ref_disk_size=`gpart list $ref_disk | grep 'Mediasize' | awk '{print $2}'`
-  if [ ! -z "${zfs_partition_size}" ]; then
+  if [ "${zfs_partition_size}" ]; then
     _zfs_partition_size=`echo "${zfs_partition_size}"|tr GMKBWX gmkbwx|sed -Ees:g:km:g -es:m:kk:g -es:k:"*2b":g -es:b:"*128w":g -es:w:"*4 ":g -e"s:(^|[^0-9])0x:\1\0X:g" -ey:x:"*":|bc |sed "s:\.[0-9]*$::g"`
   fi
-  _swap_partition_size=`echo "${swap_partition_size}"|tr GMKBWX gmkbwx|sed -Ees:g:km:g -es:m:kk:g -es:k:"*2b":g -es:b:"*128w":g -es:w:"*4 ":g -e"s:(^|[^0-9])0x:\1\0X:g" -ey:x:"*":|bc |sed "s:\.[0-9]*$::g"`
-  total_size=$((${_zfs_partition_size}+${_swap_partition_size}))
+  if [ "${swap_partition_size}" ]; then
+    _swap_partition_size=`echo "${swap_partition_size}"|tr GMKBWX gmkbwx|sed -Ees:g:km:g -es:m:kk:g -es:k:"*2b":g -es:b:"*128w":g -es:w:"*4 ":g -e"s:(^|[^0-9])0x:\1\0X:g" -ey:x:"*":|bc |sed "s:\.[0-9]*$::g"`
+  fi
+  total_size=$((${_zfs_partition_size}+${_swap_partition_size}+162))
   if [ "${total_size}" -gt "${ref_disk_size}" ]; then
-    echo "This will not fit!"
+    echo "ERROR: The current settings for the partitions sizes will not fit onto your disk."
     exit
   else
   fi
