@@ -7,10 +7,10 @@
 # This only works with FreeBSD 8.0 (tested with 8.0-RELEASE), you have been warned!
 #
 # Startup the FreeBSD livefs CD. Go into the Fixit console. Create /var/db if you want to use DHCP. Configure
-# your network settings. Fetch http://anonsvn.h3q.com/projects/freebsd-patches/export/71/manageBE/create-zfsboot-gpt_livecd.sh
+# your network settings. Fetch http://anonsvn.h3q.com/projects/freebsd-patches/export/72/manageBE/create-zfsboot-gpt_livecd.sh
 # Execute the script with the following parameter:
 #
-# -p sets the geom provider to use
+# -p sets the geom provider to use, you can use multiple. Add a name for the GPT labels: -p ad4=black -p ad6=white
 # -s sets the swap_partition_size to create, you can use m/M for megabyte or g/G for gigabyte
 # -S sets the zfs_partition_size to create, you can use m/M for megabyte or g/G for gigabyte, default is all available size
 # -n sets the name of the zpool to create
