@@ -61,7 +61,11 @@ case ${type} in
             ?) exerr ${usage_create};;
         esac; done; shift $(( ${OPTIND} - 1 ))
 
-        [ "${new_bootfs}" -a "${pool}" -a "${bootfs}" ] || exerr ${usage_create}
+        [ "${new_bootfs}" -a "${pool}" ] || exerr ${usage_create}
+        
+        if [ -z "${bootfs}" ]; then
+            bootfs=`/sbin/zpool list -H -o bootfs ${pool} | sed s:${pool}/ROOT/::`
+        fi
 
         check_for_be_existence
 
