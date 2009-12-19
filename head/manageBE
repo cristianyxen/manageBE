@@ -8,7 +8,7 @@ mgm="manageBE"
 usage_activate="Usage: ${mgm} activate -n <BE> -p <pool>"
 usage_create="Usage: ${mgm} create -n <newBE> -s <sourceBE> -p <pool>"
 usage_delete="Usage: ${mgm} delete -n <BE> -p <pool> -o [yes|no]"
-usage_upgrade="Usage: ${mgm} src-upgrade -n <BE> -p <pool> {KERNCONF=GENERIC}"
+usage_src_upgrade="Usage: ${mgm} src-upgrade -n <BE> -p <pool>"
 usage_freebsd_update="Usage: ${mgm} freebsd-update -n <BE> -p <pool>"
 usage_freebsd_upgrade="Usage: ${mgm} freebsd-upgrade -n <BE> -p <pool> -r <release>"
 
@@ -185,10 +185,10 @@ case ${type} in
         shift; while getopts :n:p: arg; do case ${arg} in
             n) bootfs=${OPTARG};;
             p) pool=${OPTARG};;
-            ?) exerr ${usage_upgrade};;
+            ?) exerr ${usage_src_upgrade};;
         esac; done; shift $(( ${OPTIND} - 1 ))
 
-        [ "${bootfs}" -a "${pool}" ] || exerr ${usage_upgrade}
+        [ "${bootfs}" -a "${pool}" ] || exerr ${usage_src_upgrade}
 
         check_for_be_existence
 
@@ -219,7 +219,7 @@ umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
         shift; while getopts :n:p: arg; do case ${arg} in
             n) bootfs=${OPTARG};;
             p) pool=${OPTARG};;
-            ?) exerr ${usage_upgrade};;
+            ?) exerr ${usage_freebsd_upgrade};;
         esac; done; shift $(( ${OPTIND} - 1 ))
 
         [ "${bootfs}" -a "${pool}" -a ${release} ] || exerr ${usage_freebsd_update}
@@ -240,7 +240,7 @@ umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
             n) bootfs=${OPTARG};;
             p) pool=${OPTARG};;
             r) release=${OPTARG};;
-            ?) exerr ${usage_upgrade};;
+            ?) exerr ${usage_freebsd_upgrade};;
         esac; done; shift $(( ${OPTIND} - 1 ))
 
         [ "${bootfs}" -a "${pool}" -a ${release} ] || exerr ${usage_freebsd_upgrade}
