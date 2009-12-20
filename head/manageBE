@@ -161,8 +161,16 @@ case ${type} in
                     be_nextboot='yes'
                 fi
 
-                if [ "${be_active}" = "yes" ]; then
+                if [ "${be_active}" = "yes" -a "${be_nextboot}" = "yes" ]; then
                   be_space=`/sbin/zfs list -H -o referenced $be_filesystem`
+                  be_mountpoint='/'
+                elif [ "${be_active}" = "no" -a "${be_nextboot}" = "yes" ]; then
+                  be_origin=`/sbin/zfs list -H -o origin ${be_filesystem}`
+                  be_space=`/sbin/zfs list -H -t snapshot -o used $be_origin`
+                  be_mountpoint=`/sbin/zfs list -H -o mountpoint $be_filesystem`
+                elif [ "${be_active}" = "yes" -a "${be_nextboot}" = "no" ]; then
+                  be_origin=`/sbin/zfs list -H -o origin ${be_filesystem}`
+                  be_space=`/sbin/zfs list -H -t snapshot -o used $be_origin`
                   be_mountpoint='/'
                 else
                   be_origin=`/sbin/zfs list -H -o origin ${be_filesystem}`
