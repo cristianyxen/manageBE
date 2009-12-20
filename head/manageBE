@@ -161,10 +161,14 @@ case ${type} in
                     be_nextboot='yes'
                 fi
 
-                be_space=`/sbin/zfs list -H -o referenced $be_filesystem`
-
-                be_mountpoint=`/sbin/zfs list -H -o mountpoint $be_filesystem`
-
+                if [ "${be_active}" = "yes" ]; then
+                  be_space=`/sbin/zfs list -H -o referenced $be_filesystem`
+                  be_mountpoint='/'
+                else
+                  be_origin=`/sbin/zfs list -H -o origin ${be_filesystem}`
+                  be_space=`/sbin/zfs list -H -t snapshot -o used $be_origin`
+                  be_mountpoint=`/sbin/zfs list -H -o mountpoint $be_filesystem`
+                fi
                 printf "%-${name_length}s %-6s %-6s %-${mountpoint_length}s %${space_length}s\\n" $be_name $be_active $be_nextboot $be_mountpoint $be_space
 
                 if [ "$verbose" = "YES" ]; then
