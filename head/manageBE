@@ -162,9 +162,11 @@ case ${type} in
                 fi
 
                 if [ "${be_active}" = "yes" -a "${be_nextboot}" = "yes" ]; then
+                  used_by_snapshots=`/sbin/zfs list -H -o usedbysnapshots $be_filesystem`
                   be_space=`/sbin/zfs list -H -o referenced $be_filesystem`
                   be_mountpoint='/'
                 elif [ "${be_active}" = "no" -a "${be_nextboot}" = "yes" ]; then
+                  used_by_snapshots=`/sbin/zfs list -H -o usedbysnapshots $be_filesystem`
                   be_origin=`/sbin/zfs list -H -o origin ${be_filesystem}`
                   be_space=`/sbin/zfs list -H -t snapshot -o used $be_origin`
                   be_mountpoint=`/sbin/zfs list -H -o mountpoint $be_filesystem`
@@ -192,6 +194,8 @@ case ${type} in
                 fi
             fi
         done
+        echo
+        echo "Used by BE snapshots: ${used_by_snapshots}"
         echo
     done
     ;;
