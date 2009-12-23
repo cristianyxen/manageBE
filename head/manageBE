@@ -43,13 +43,7 @@ case ${type} in
         /sbin/zpool set bootfs=${pool}/ROOT/${bootfs} ${pool}
 
         /sbin/zfs promote ${pool}/ROOT/${bootfs}
-        #/sbin/zfs promote ${pool}/ROOT/freebsd-update/${bootfs}
-
-        #/sbin/zfs unmount ${pool}/ROOT/freebsd-update/${bootfs}
-        #/sbin/zfs unmount ${pool}/ROOT/freebsd-update/${old_bootfs}
-
-        #/sbin/zfs set mountpoint=/$pool/ROOT/${old_bootfs}/var/db/freebsd-update ${pool}/ROOT/freebsd-update/${old_bootfs}
-        #/sbin/zfs set mountpoint=/var/db/freebsd-update ${pool}/ROOT/freebsd-update/${bootfs}
+        /sbin/zfs promote ${pool}/ROOT/${bootfs}/var
     ;;
     create)
         # create a boot-environment
@@ -71,19 +65,20 @@ case ${type} in
 
         # create snapshot of the source BE
         /sbin/zfs snapshot ${pool}/ROOT/${bootfs}@${new_bootfs}
-        #/sbin/zfs snapshot ${pool}/ROOT/freebsd-update/${bootfs}@${new_bootfs}
+        /sbin/zfs snapshot ${pool}/ROOT/${bootfs}/var@${new_bootfs}
 
         # clone the snapshots to create the new BE
         /sbin/zfs clone ${pool}/ROOT/${bootfs}@${new_bootfs} ${pool}/ROOT/${new_bootfs}
-        #/sbin/zfs clone ${pool}/ROOT/freebsd-update/${bootfs}@${new_bootfs} ${pool}/ROOT/freebsd-update/${new_bootfs}
+        /sbin/zfs clone ${pool}/ROOT/${bootfs}/var@${new_bootfs} ${pool}/ROOT/${new_bootfs}/var
 
         # mark the BE as boot-environment and mount the freebsd-update dir in the correct path
+        /sbin/zfs set freebsd:boot-environment=0 ${pool}/ROOT/${new_bootfs}/var
         /sbin/zfs set freebsd:boot-environment=1 ${pool}/ROOT/${new_bootfs}
-        #/sbin/zfs set mountpoint=/${pool}/ROOT/${new_bootfs}/var/db/freebsd-update ${pool}/ROOT/freebsd-update/${new_bootfs}
 
         grep -v '^vfs.root.mountfrom' /boot/loader.conf > /${pool}/ROOT/${new_bootfs}/boot/loader.conf
         echo vfs.root.mountfrom=\"zfs:${pool}/ROOT/${new_bootfs}\" >> /${pool}/ROOT/${new_bootfs}/boot/loader.conf
-        echo "Install new kernel with option 'DESTDIR=/${pool}/ROOT/${new_bootfs}/' and run '${mgm} activate -n ${new_bootfs} -p ${pool}'"
+        cat /${pool}/ROOT/${bootfs}/etc/fstab | s/${bootfs}/${new_bootfs}/g > /${pool}/ROOT/${new_bootfs}/etc/fstab
+        echo "The new Boot-Environment is ready to be updated and/or activated."
     ;;
     delete)
         # delete a boot-environment
@@ -107,7 +102,7 @@ case ${type} in
             fi
             /sbin/zfs destroy -r ${pool}/ROOT/${bootfs} || exerr ${error_delete}
             if [ "${delete_origin}" = "yes" -a "${origin}" ]; then
-                /sbin/zfs destroy ${origin}
+                /sbin/zfs destroy -r ${origin}
             fi
         else
             echo "${bootfs} is ZFS bootfs, unable to delete!"
