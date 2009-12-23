@@ -63,16 +63,18 @@ case ${type} in
 
         check_for_be_existence
 
-        # create snapshot of the source BE
+        # create snapshot of the source BE and clone the snapshot to create the new BE
         /sbin/zfs snapshot ${pool}/ROOT/${bootfs}@${new_bootfs}
-        /sbin/zfs snapshot ${pool}/ROOT/${bootfs}/var@${new_bootfs}
-
-        # clone the snapshots to create the new BE
         /sbin/zfs clone ${pool}/ROOT/${bootfs}@${new_bootfs} ${pool}/ROOT/${new_bootfs}
-        /sbin/zfs clone ${pool}/ROOT/${bootfs}/var@${new_bootfs} ${pool}/ROOT/${new_bootfs}/var
+
+        # create snapshot of the source BE children and clone the snapshot to create the new BE children, mark the filesystem as not being BEs
+        for filesystem in `zfs list -H -o name -t filesystem -r | sed s:${pool}/ROOT/${bootfs}:: | sed s:^/:: | xargs`; do
+          /sbin/zfs snapshot ${pool}/ROOT/${bootfs}/${filesystem}@${new_bootfs}
+          /sbin/zfs clone ${pool}/ROOT/${bootfs}/${filesystem}@${new_bootfs} ${pool}/ROOT/${new_bootfs}/${filesystem}
+          /sbin/zfs set freebsd:boot-environment=0 ${pool}/ROOT/${new_bootfs}/${filesystem}
+        done
 
         # mark the BE as boot-environment and mount the freebsd-update dir in the correct path
-        /sbin/zfs set freebsd:boot-environment=0 ${pool}/ROOT/${new_bootfs}/var
         /sbin/zfs set freebsd:boot-environment=1 ${pool}/ROOT/${new_bootfs}
 
         grep -v '^vfs.root.mountfrom' /boot/loader.conf > /${pool}/ROOT/${new_bootfs}/boot/loader.conf
