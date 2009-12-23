@@ -42,7 +42,7 @@ case ${type} in
         old_bootfs=`/sbin/zpool list -H -o bootfs ${pool} |sed s:^$pool/ROOT/::`
         /sbin/zpool set bootfs=${pool}/ROOT/${bootfs} ${pool}
 
-        for filesystem in `/sbin/zfs list -H -o name -t filesystem -r ${pool}/ROOT/${bootfs}`; do
+        for filesystem in `/sbin/zfs list -H -o name -t filesystem -r ${pool}/ROOT/${bootfs} |/usr/bin/xargs`; do
           /sbin/zfs promote ${filesystem}
         done
     ;;
