@@ -217,7 +217,6 @@ case ${type} in
 
 	mount -t nullfs -o ro /usr/src /${pool}/ROOT/${bootfs}/usr/src
 	mount -t nullfs -o ro /usr/obj /${pool}/ROOT/${bootfs}/usr/obj
-	mount -t nullfs -o rw /var /${pool}/ROOT/${bootfs}/var
 
 	echo '#!/bin/sh
 mount -t devfs devfs /dev
@@ -230,7 +229,6 @@ umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
 	chmod +x /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
 	chroot /${pool}/ROOT/${bootfs}/ /tmp/manageBE-upgrade.sh
 	rm /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
-	umount /${pool}/ROOT/${bootfs}/var
 	umount /${pool}/ROOT/${bootfs}/usr/obj
 	umount /${pool}/ROOT/${bootfs}/usr/src
 	
