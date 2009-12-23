@@ -79,7 +79,7 @@ case ${type} in
 
         grep -v '^vfs.root.mountfrom' /boot/loader.conf > /${pool}/ROOT/${new_bootfs}/boot/loader.conf
         echo vfs.root.mountfrom=\"zfs:${pool}/ROOT/${new_bootfs}\" >> /${pool}/ROOT/${new_bootfs}/boot/loader.conf
-        cat /etc/fstab | s/${bootfs}/${new_bootfs}/g > /${pool}/ROOT/${new_bootfs}/etc/fstab
+        cat /etc/fstab | sed s/${bootfs}/${new_bootfs}/g > /${pool}/ROOT/${new_bootfs}/etc/fstab
         echo "The new Boot-Environment is ready to be updated and/or activated."
     ;;
     delete)
