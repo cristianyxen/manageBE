@@ -39,10 +39,10 @@ case ${type} in
 
         check_for_be_existence
 
-        old_bootfs=`/sbin/zpool list -H -o bootfs ${pool} |sed s:^$pool/ROOT/::`
+        old_bootfs=`/sbin/zpool list -H -o bootfs ${pool} |/usr/bin/sed s:^$pool/ROOT/::`
         /sbin/zpool set bootfs=${pool}/ROOT/${bootfs} ${pool}
 
-        for filesystem in `/sbin/zfs list -H -o name -t filesystem -r ${pool}/ROOT/${bootfs} |/usr/bin/xargs`; do
+        for filesystem in `/sbin/zfs list -H -o name -t filesystem -r ${pool}/ROOT/${bootfs}`; do
           /sbin/zfs promote ${filesystem}
         done
     ;;
@@ -59,7 +59,7 @@ case ${type} in
         [ "${new_bootfs}" -a "${pool}" ] || exerr ${usage_create}
         
         if [ -z "${bootfs}" ]; then
-            bootfs=`/sbin/zpool list -H -o bootfs ${pool} | sed s:${pool}/ROOT/::`
+            bootfs=`/sbin/zpool list -H -o bootfs ${pool} | /usr/bin/sed s:${pool}/ROOT/::`
         fi
 
         check_for_be_existence
@@ -69,7 +69,7 @@ case ${type} in
         /sbin/zfs clone ${pool}/ROOT/${bootfs}@${new_bootfs} ${pool}/ROOT/${new_bootfs}
 
         # clone the children snapshot to create the new BE children, mark the filesystem as not being BEs
-        for filesystem in `/sbin/zfs list -H -o name -t filesystem -r ${pool}/ROOT/${bootfs} | sed s:${pool}/ROOT/${bootfs}:: | sed s:^/:: | xargs`; do
+        for filesystem in `/sbin/zfs list -H -o name -t filesystem -r ${pool}/ROOT/${bootfs} | /usr/bin/sed s:${pool}/ROOT/${bootfs}:: | /usr/bin/sed s:^/:: | /usr/bin/xargs`; do
           /sbin/zfs clone ${pool}/ROOT/${bootfs}/${filesystem}@${new_bootfs} ${pool}/ROOT/${new_bootfs}/${filesystem}
           /sbin/zfs set freebsd:boot-environment=0 ${pool}/ROOT/${new_bootfs}/${filesystem}
         done
@@ -137,7 +137,7 @@ case ${type} in
         if [ "$mountpoint_length" -lt "10" ]; then
             mountpoint_length=10
         fi
-        name_length=`/sbin/zfs list -H -o name -r $pool/ROOT | tail +2 | sed s:^$pool/ROOT/:: |wc -L`
+        name_length=`/sbin/zfs list -H -o name -r $pool/ROOT | tail +2 | /usr/bin/sed s:^$pool/ROOT/:: |wc -L`
         if [ "$name_length" -lt "4" ]; then
             name_length=4
         fi
@@ -145,7 +145,7 @@ case ${type} in
         if [ "$space_length" -lt "5" ]; then
             space_length=5
         fi
-        snapshot_length=`/sbin/zfs list -t snapshot -H -o name -r $pool/ROOT | sed s:^$pool/ROOT/::  | wc -L`
+        snapshot_length=`/sbin/zfs list -t snapshot -H -o name -r $pool/ROOT | /usr/bin/sed s:^$pool/ROOT/::  | wc -L`
 
         printf "%-${name_length}s %-6s %-6s %-${mountpoint_length}s %-${space_length}s\\n" BE Active Active Mountpoint Space
         printf "%-${name_length}s %-6s %-6s %-${mountpoint_length}s %-${space_length}s\\n" Name Now Reboot - Used
@@ -154,7 +154,7 @@ case ${type} in
         for be_filesystem in `/sbin/zfs list -H -S creation -o name -r $pool/ROOT |grep -v "^$pool/ROOT\$"`; do
 
             if [ `/sbin/zfs list -H -o freebsd:boot-environment ${be_filesystem}` -eq 1 ]; then
-                be_name=`echo ${be_filesystem}|sed s:^$pool/ROOT/::`
+                be_name=`echo ${be_filesystem}|/usr/bin/sed s:^$pool/ROOT/::`
 
                 be_active='no'	
                 if [ "${be_filesystem}" = "${rootfs}" ]; then
@@ -189,7 +189,7 @@ case ${type} in
                     echo
                     printf "\t%-${snapshot_length}s %-21s\\n" Name Created
                     printf "\t%-${snapshot_length}s %-21s\\n" $be_name "$be_created"
-                    for snapshot_name in `/sbin/zfs list -t snapshot -H -r -o name $pool/ROOT/$be_name|sed s:^$pool/ROOT/::`; do
+                    for snapshot_name in `/sbin/zfs list -t snapshot -H -r -o name $pool/ROOT/$be_name|/usr/bin/sed s:^$pool/ROOT/::`; do
                         snapshot_created=`/sbin/zfs list -t snapshot -H -S creation -o creation $pool/ROOT/$snapshot_name`
                         printf "\t%-${snapshot_length}s %-21s\\n" $snapshot_name "$snapshot_created"
                     done
