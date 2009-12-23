@@ -2,7 +2,7 @@
 
 # manageBE [activate|create|delete|list|src-upgrade|freebsd-update|freebsd-upgrade] {params}
 
-if [ `uname -r |cut -d '.' -f1` < "8" ]; then
+if [ `uname -r |cut -d '.' -f1` -lt "8" ]; then
     echo "Sorry, only FreeBSD starting with 8.0 is supported."
 fi
 
