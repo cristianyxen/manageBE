@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# manageBE [activate|create|delete|list|freebsd-update|freebsd-upgrade] {params}
+# manageBE [activate|create|delete|list|src-upgrade|freebsd-update|freebsd-upgrade] {params}
 
 type=$1
 
@@ -276,6 +276,6 @@ umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
         echo "Please activate ${bootfs} via manageBE and reboot. After rebooting, freebsd-update needs to be run again to install the new userland components, and the system needs to be rebooted again"
     ;;
     *)
-        echo echo "Usage: ${mgm} [activate|create|delete|list] {params}"
+        echo echo "Usage: ${mgm} [activate|create|delete|list|src-upgrade|freebsd-update|freebsd-upgrade] {params}"
     ;;
 esac
