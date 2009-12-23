@@ -2,6 +2,10 @@
 
 # manageBE [activate|create|delete|list|src-upgrade|freebsd-update|freebsd-upgrade] {params}
 
+if [ `uname -r |cut -d '.' -f1` < "8" ]; then
+    echo "Sorry, only FreeBSD starting with 8.0 is supported."
+fi
+
 type=$1
 
 mgm="manageBE"
@@ -11,6 +15,7 @@ usage_delete="Usage: ${mgm} delete -n <BE> -p <pool> -o [yes|no]"
 usage_src_upgrade="Usage: ${mgm} src-upgrade -n <BE> -p <pool>"
 usage_freebsd_update="Usage: ${mgm} freebsd-update -n <BE> -p <pool>"
 usage_freebsd_upgrade="Usage: ${mgm} freebsd-upgrade -n <BE> -p <pool> -r <release>"
+not_supported="Sorry, your FreeBSD version does not support this option"
 
 error_delete="If filesystem has dependent clones, please promote them via 'zfs promote <filesystem>' and re-run ${mgm} delete"
 
@@ -235,6 +240,7 @@ umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
 	echo "Please activate ${bootfs} via manageBE and reboot."
     ;;
     freebsd-update)
+        [ `uname -r | cut -d '-' -f1,2` = "8.0-RELEASE" ] && exerr ${not_supported}
         # update a boot-environment using freebsd-update
 
         shift; while getopts :n:p: arg; do case ${arg} in
@@ -255,6 +261,7 @@ umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
         echo "Please activate ${bootfs} via manageBE and reboot."
     ;;
     freebsd-upgrade)
+        [ `uname -r | cut -d '-' -f1,2` = "8.0-RELEASE" ] && exerr ${not_supported}
         # upgrade a boot-environment using freebsd-update
 
         shift; while getopts :n:p:r: arg; do case ${arg} in
