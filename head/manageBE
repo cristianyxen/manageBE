@@ -68,7 +68,7 @@ case ${type} in
         /sbin/zfs clone ${pool}/ROOT/${bootfs}@${new_bootfs} ${pool}/ROOT/${new_bootfs}
 
         # create snapshot of the source BE children and clone the snapshot to create the new BE children, mark the filesystem as not being BEs
-        for filesystem in `zfs list -H -o name -t filesystem -r | sed s:${pool}/ROOT/${bootfs}:: | sed s:^/:: | xargs`; do
+        for filesystem in `zfs list -H -o name -t filesystem -r ${pool}/ROOT/${bootfs} | sed s:${pool}/ROOT/${bootfs}:: | sed s:^/:: | xargs`; do
           /sbin/zfs snapshot ${pool}/ROOT/${bootfs}/${filesystem}@${new_bootfs}
           /sbin/zfs clone ${pool}/ROOT/${bootfs}/${filesystem}@${new_bootfs} ${pool}/ROOT/${new_bootfs}/${filesystem}
           /sbin/zfs set freebsd:boot-environment=0 ${pool}/ROOT/${new_bootfs}/${filesystem}
