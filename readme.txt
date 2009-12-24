@@ -5,11 +5,7 @@ This tool makes some assumptions about your system and filesystem layout
 1. you use FreeBSD with ZFS root and zfsboot support
 2. your boot-filesystems are located under pool/ROOT/boot-filesystemname, to convert to this setup take a look
    at convert-readme.txt
-3. all your FreeBSD userland (base) is located on a single ZFS filesystem, no extra filesystem for e.g. /usr
-4. you don't use freebsd-update but update from src (might be fixed)
-
-NOTE: It is recommened to have seperate filesystems for /tmp, /var and any other diretory not populated by the
-      FreeBSD userland.
+3. your ZFS-rootfilesystem is created by the http://anonsvn.h3q.com/projects/freebsd-patches/browser/manageBE/create-zfsboot-gpt_livecd.sh script or converted as described by http://anonsvn.h3q.com/projects/freebsd-patches/browser/manageBE/convert-readme.txt
 
 The idea of using ZFS to create Boot-Environments (BE) and always to be able to got back to your old BE in case the 
 new does not work is as follows:

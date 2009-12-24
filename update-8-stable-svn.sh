@@ -14,6 +14,6 @@ if [ "$new_rev" -gt "$old_rev" -o "$new_rev" -gt "$work_rev" ]; then
   make -s -j4 buildworld
   make -s -j4 buildkernel
   manageBE create -s 8-STABLE-r${work_rev} -n 8-STABLE-r${new_rev} -p testbox
-  manageBE upgrade -n 8-STABLE-r${new_rev} -p testbox
+  manageBE src-upgrade -n 8-STABLE-r${new_rev} -p testbox
   manageBE activate -n 8-STABLE-r${new_rev} -p testbox
 fi
