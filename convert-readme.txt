@@ -11,14 +11,18 @@ With manageBE the root-filesystems are located at pool/ROOT, it is recommended t
 3. Send and receive the snapshot to the new rootfs
    e.g. zfs send tank@manageBE |zfs receive tank/ROOT/mynew_rootfs
    The new rootfs should be mounted at /tank/ROOT/mynew_rootfs now
+   
+4. Mark the new rootfs as being a boot-environment
+   e.g. zfs set freebsd:boot-environment=1 tank/ROOT/mynew_rootfs
 
-4. Edit /tank/ROOT/mynew_rootfs/boot/loader.conf and add 'vfs.root.mountfrom="zfs:tank/ROOT/mynew_rootfs"
+5. Edit /tank/ROOT/mynew_rootfs/boot/loader.conf and add 'vfs.root.mountfrom="zfs:tank/ROOT/mynew_rootfs"
 
-5. Activate the new rootfs
+6. Activate the new rootfs
    e.g. zpool set bootfs=tank/ROOT/mynew_rootfs tank
 
-6. Reboot into the new rootfs
 
-7. Delete everything in /tank except the ROOT directory, you can now also delete the tank@manageBE snapshot
+7. Reboot into the new rootfs
+
+8. Delete everything in /tank except the ROOT directory, you can now also delete the tank@manageBE snapshot
 
 DISCLAIMER: Always make backups, don't blame me if this renders your system unusable or you lose any data!
