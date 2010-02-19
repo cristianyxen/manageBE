@@ -7,7 +7,7 @@
 # This only works with FreeBSD 8.0 (tested with 8.0-RELEASE), you have been warned!
 #
 # Startup the FreeBSD livefs CD. Go into the Fixit console. Create /var/db if you want to use DHCP. Configure
-# your network settings. Fetch http://anonsvn.h3q.com/projects/freebsd-patches/export/73/manageBE/create-zfsboot-gpt_livecd.sh
+# your network settings. Fetch http://anonsvn.h3q.com/s/gpt-zfsroot.sh
 # Execute the script with the following parameter:
 #
 # -p sets the geom provider to use, you can use multiple. Add a name for the GPT labels: -p ad4=black -p ad6=white
@@ -68,10 +68,6 @@ if [ "$devcount" -eq "1" -a "$mode" = "mirror" ]; then
 fi
 if [ "$devcount" -lt "3" -a "$mode" = "raidz" ]; then
     echo "Sorry, you need at least three disks for a zfs raidz!"
-    exit
-fi
-if [ "$devcount" -gt "1" -a "$mode" = "stripe" ]; then
-    echo "Sorry, booting from a multiple-disk stripe is not supported!"
     exit
 fi
 
@@ -205,11 +201,8 @@ fi
 
 sleep 2
 
-if [ "$mode" = "raidz" ]; then
-  rootzfs="$poolname"
-else
-  rootzfs="$poolname/ROOT/$poolname"
-fi
+echo "Setting checksum to fletcher4"
+zfs set checksum=fletcher4 ${poolname}
 
 zfs create -p $rootzfs
 zfs set freebsd:boot-environment=1 $rootzfs
@@ -331,11 +324,7 @@ zfs umount $poolname/usr-obj
 zfs set mountpoint=/usr/obj $poolname/usr-obj
 
 # Enable the new filesystem as zpool bootfs
-if [ "$mode" != "raidz" ]; then
-  zpool set bootfs=$rootzfs $poolname
-else
-  zfs set mountpoint=legacy $rootzfs
-fi
+zpool set bootfs=$rootzfs $poolname
 
 # We still need to tell the kernel from where to mount its root-filesystem
 echo 'zfs_load="YES"' >> /$rootzfs/boot/loader.conf
