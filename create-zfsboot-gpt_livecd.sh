@@ -274,9 +274,6 @@ cd /$distdir/kernels ; sh ./install.sh generic
 
 cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
 
-# fix usr/share/man/man8
-rm /$rootzfs/usr/share/man/man8
-
 if [ -z "$distdir" ]; then
     zfs destroy $poolname/installdata
 fi
@@ -303,6 +300,9 @@ exit' > /$rootzfs/tmp/chroot-command.sh
 chmod +x /$rootzfs/tmp/chroot-command.sh
 chroot /$rootzfs/ /tmp/chroot-command.sh
 rm /$rootzfs/tmp/chroot-command.sh
+
+# fix usr/share/man/man8
+rm /$rootzfs/usr/share/man/man8
 
 echo
 echo "Installing new bootcode on disks: "
