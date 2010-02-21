@@ -201,11 +201,8 @@ for zfs in `zfs list -H -o name -t filesystem -r ${src_poolname} | sort`; do
   if [ -z "${oldest_snap}" -o "${oldest_snap}" = "_clone" ]; then
     zfs send ${zfs}@_clone | zfs recv -F ${dest_zfs}
   else
-  echo
-  echo "zfs send -R -I @${oldest_snap} ${zfs}@_clone | zfs recv -dF ${dest_zfs}"
-  echo
-    zfs create ${dest_zfs}
-    zfs send -R -I @${oldest_snap} ${zfs}@_clone | zfs recv -dF ${dest_zfs}
+    zfs send ${zfs}@${oldest_snap}| zfs recv -F ${dest_zfs}
+    zfs send -I @${oldest_snap} ${zfs}@_clone | zfs recv -F ${dest_zfs}
   fi
 done
 
