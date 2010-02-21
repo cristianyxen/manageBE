@@ -203,8 +203,13 @@ zfs snapshot -r ${src_poolname}@_clone
 
 for zfs in `zfs list -H -o name -t filesystem -r ${src_poolname} | sort`; do
   dest_zfs=`echo ${zfs} |sed s:${src_poolname}:${poolname}:`
+  oldest_snap=`zfs list -H -o name -t snapshot -r ${zfs} |tail -n1 | sed s:${zfs}@::`
   echo "Copying ${zfs} to ${dest_zfs}.."
-  zfs send ${zfs}@_clone | zfs recv -F ${dest_zfs}
+  if [ -z "${oldest_snap}" -o "${oldest_snap}" = "_clone" ]; then
+    zfs send ${zfs}@_clone | zfs recv -F ${dest_zfs}
+  else
+    zfs send -I @${oldest_snap} ${zfs}@_clone | zfs recv -F ${dest_zfs}
+  fi
 done
 
 zfs destroy -r ${src_poolname}@_clone
