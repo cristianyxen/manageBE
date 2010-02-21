@@ -96,7 +96,6 @@ for disk in $provider; do
 done
 
 echo
-sleep 1
 
 smallest_disk_size='0'
 echo "Checking disks for size:"
@@ -116,7 +115,6 @@ check_size
 echo
 echo "NOTICE: Using $ref_disk (smallest or only disk) as reference disk for calculation offsets"
 echo
-sleep 2
 
 echo "Creating GPT boot partition on disks:"
 for disk in $provider; do
@@ -126,7 +124,6 @@ for disk in $provider; do
 done
 
 echo
-sleep 2
 
 if [ "$swap_partition_size" ]; then
   echo "Creating GPT swap partition on with size ${swap_partition_size} on disks: "
@@ -138,7 +135,6 @@ if [ "$swap_partition_size" ]; then
 fi
 
 echo
-sleep 2
 
 offset=`gpart show $ref_disk | grep '\- free \-' | awk '{print $1}'`
 if [ -z "${zfs_partition_size}" ]; then
@@ -156,7 +152,6 @@ for disk in $provider; do
 done
 
 echo
-sleep 2
 
 # Make first partition active so the BIOS boots from it
 for disk in $provider; do
@@ -181,8 +176,6 @@ if [ `zpool list -H -o name $poolname` != "$poolname" ]; then
   exit
 fi
 
-sleep 2
-
 echo "Setting checksum to fletcher4"
 zfs set checksum=fletcher4 ${poolname}
 
@@ -203,12 +196,16 @@ zfs snapshot -r ${src_poolname}@_clone
 
 for zfs in `zfs list -H -o name -t filesystem -r ${src_poolname} | sort`; do
   dest_zfs=`echo ${zfs} |sed s:${src_poolname}:${poolname}:`
-  oldest_snap=`zfs list -H -o name -t snapshot -r ${zfs} |tail -n1 | sed s:${zfs}@::`
+  oldest_snap=`zfs list -H -o name -t snapshot -S creation -r ${zfs} | grep ${zfs}@ |tail -n1 | sed s:${zfs}@::`
   echo "Copying ${zfs} to ${dest_zfs}.."
   if [ -z "${oldest_snap}" -o "${oldest_snap}" = "_clone" ]; then
     zfs send ${zfs}@_clone | zfs recv -F ${dest_zfs}
   else
-    zfs send -I @${oldest_snap} ${zfs}@_clone | zfs recv -F ${dest_zfs}
+  echo
+  echo "zfs send -R -I @${oldest_snap} ${zfs}@_clone | zfs recv -dF ${dest_zfs}"
+  echo
+    zfs create ${dest_zfs}
+    zfs send -R -I @${oldest_snap} ${zfs}@_clone | zfs recv -dF ${dest_zfs}
   fi
 done
 
@@ -233,8 +230,5 @@ if [ ! "-" = "${src_bootfs}" ]; then
   echo "Fixing new fstab."
   cat /etc/fstab | sed s:${src_poolname}/ROOT:${poolname}/ROOT:g > /${rootzfs}/etc/fstab
 fi
-
-
-sleep 5
 
 echo "Please reboot the system from the new harddisk(s) without exporting ${poolname}!"
