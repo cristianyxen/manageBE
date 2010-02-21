@@ -208,7 +208,7 @@ zfs create -p $rootzfs
 zfs set freebsd:boot-environment=1 $rootzfs
 
 # Now we create some stuff we also would like to have in seperate filesystems
-for filesystem in var usr-src usr-obj usr-local tmp; do
+for filesystem in usr-src usr-obj usr-local tmp; do
    echo "Creating $poolname/$filesystem"
    zfs create $poolname/$filesystem
    if [ "$filesystem" = "tmp" ]; then
@@ -226,9 +226,6 @@ zfs mount $poolname/usr-src
 
 zfs set mountpoint=/$rootzfs/usr/obj $poolname/usr-obj
 zfs mount $poolname/usr-obj
-
-zfs set mountpoint=/$rootzfs/var $poolname/var
-zfs mount $poolname/var
 
 echo ####################################
 if [ -z "$distdir" ]; then
@@ -310,10 +307,6 @@ for disk in $provider; do
   gpart bootcode -b /$rootzfs/boot/pmbr -p /$rootzfs/boot/gptzfsboot -i 1 $disk > /dev/null
 done
 echo
-
-# We need to fix /var so it is mounted correct when booting from ZFS
-zfs umount $poolname/var
-zfs set mountpoint=/var $poolname/var
 
 # We need to fix /usr/src so it is mounted correct when booting from ZFS
 zfs umount $poolname/usr-src
