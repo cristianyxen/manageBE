@@ -275,7 +275,7 @@ cd /$distdir/kernels ; sh ./install.sh generic
 cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
 
 # fix usr/share/man/man8
-rm $DESTDIR/usr/share/man/man8
+rm /$rootzfs/usr/share/man/man8
 
 if [ -z "$distdir" ]; then
     zfs destroy $poolname/installdata
