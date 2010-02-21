@@ -204,6 +204,8 @@ sleep 2
 echo "Setting checksum to fletcher4"
 zfs set checksum=fletcher4 ${poolname}
 
+rootzfs="$poolname/ROOT/$poolname"
+
 zfs create -p $rootzfs
 zfs set freebsd:boot-environment=1 $rootzfs
 
@@ -271,6 +273,9 @@ echo "Extracting kernel into ${DESTDIR}boot"
 cd /$distdir/kernels ; sh ./install.sh generic
 
 cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
+
+# fix usr/share/man/man8
+rm $DESTDIR/usr/share/man/man8
 
 if [ -z "$distdir" ]; then
     zfs destroy $poolname/installdata
