@@ -20,7 +20,7 @@
 # You can use more than one device, creating a mirror. To specify more than one device, use multiple -p options. 
 # eg. clone-gptzfsboot.sh -p ad0 -p ad1 -s 512m -S20g -n tank -o newtank
 
-usage="Usage: create-zfsboot-gpt_livecd.sh -p <geom_provider> -s <swap_partition_size> -S <zfs_partition_size> -n <zpoolname> -m <zpool-raidmode> -d <distdir> -f <ftphost>"
+usage="Usage: clone-gptzfsroot.sh -p <geom_provider> -s <swap_partition_size> -S <zfs_partition_size> -n <zpoolname> -m <zpool-raidmode> -o <source zpool>"
 
 exerr () { echo -e "$*" >&2 ; exit 1; }
 
@@ -195,13 +195,16 @@ fi
 zfs snapshot -r ${src_poolname}@_clone
 
 for zfs in `zfs list -H -o name -t filesystem -r ${src_poolname} | sort`; do
-  dest_zfs=`echo ${zfs} |sed s:${src_poolname}:${poolname}:`
+  dest_zfs=`echo ${zfs} |sed s:^${src_poolname}:${poolname}:`
   oldest_snap=`zfs list -H -o name -t snapshot -S creation -r ${zfs} | grep ${zfs}@ |tail -n1 | sed s:${zfs}@::`
   echo "Copying ${zfs} to ${dest_zfs}.."
   if [ -z "${oldest_snap}" -o "${oldest_snap}" = "_clone" ]; then
+    echo "zfs send ${zfs}@_clone | zfs recv -F ${dest_zfs}"
     zfs send ${zfs}@_clone | zfs recv -F ${dest_zfs}
   else
+    echo "zfs send ${zfs}@${oldest_snap}| zfs recv -F ${dest_zfs}"
     zfs send ${zfs}@${oldest_snap}| zfs recv -F ${dest_zfs}
+    echo "zfs send -I @${oldest_snap} ${zfs}@_clone | zfs recv -F ${dest_zfs}"
     zfs send -I @${oldest_snap} ${zfs}@_clone | zfs recv -F ${dest_zfs}
   fi
 done
