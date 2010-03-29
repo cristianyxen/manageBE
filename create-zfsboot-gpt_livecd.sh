@@ -20,6 +20,9 @@
 #
 # You can use more than one device, creating a mirror. To specify more than one device, use multiple -p options. 
 # eg. create-zfsboot-gpt_livecd.sh -p ad0 -p ad1 -s 512m -n tank
+#
+# $Id$
+#
 
 ftphost='ftp.freebsd.org'
 
