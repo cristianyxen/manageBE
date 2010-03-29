@@ -4,6 +4,9 @@
 #
 # One-click upgrade of RELENG_8 via svn
 # NO WARRANTY WHATSOEVER
+#
+# $Id$
+#
 
 cd /usr/src
 old_rev=`svn info |grep Revision |cut -d ' ' -f2`

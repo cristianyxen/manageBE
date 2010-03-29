@@ -19,6 +19,9 @@
 #
 # You can use more than one device, creating a mirror. To specify more than one device, use multiple -p options. 
 # eg. clone-gptzfsboot.sh -p ad0 -p ad1 -s 512m -S20g -n tank -o newtank
+#
+# $Id$
+#
 
 usage="Usage: clone-gptzfsroot.sh -p <geom_provider> -s <swap_partition_size> -S <zfs_partition_size> -n <zpoolname> -m <zpool-raidmode> -o <source zpool>"
 

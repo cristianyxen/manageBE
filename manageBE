@@ -1,4 +1,7 @@
 #!/bin/sh
+#
+# $Id$
+#
 
 # manageBE [activate|create|delete|list|src-upgrade|freebsd-update|freebsd-upgrade] {params}
 
