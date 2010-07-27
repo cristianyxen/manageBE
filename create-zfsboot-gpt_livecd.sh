@@ -47,9 +47,11 @@ if [ -z "$poolname" ] || [ -z "$provider" ] ; then
   exit
 fi
 
-if [ "$distdir" -a ! -f "$distdir/base/install.sh" -o ! -f "$distdir/kernels/install.sh" -o ! -f "$distdir/src/install.sh" ]; then
-  echo "Sorry, no distribution files found in ${distdir}!"
-  exit
+if [ "$distdir" ]; then
+  if [ ! -f "$distdir/base/install.sh" -o ! -f "$distdir/kernels/install.sh" ]; then
+    echo "Sorry, no distribution files found in ${distdir}!"
+    exit
+  fi
 fi
 
 # count the number of providers
@@ -254,13 +256,6 @@ if [ -z "$distdir" ]; then
         echo " -> $pkg"
         ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}/*"
     done
-    mkdir /$poolname/installdata/src
-    cd /$poolname/installdata/src/
-    echo " -> ssys"
-    ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/ssys*"
-    echo " -> slib"
-    ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/slib*"
-    ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/src/install.sh"
     distdir="/$poolname/installdata"
 else
     echo "Using distribution packages from $distdir"
@@ -271,7 +266,6 @@ export DESTDIR=/$rootzfs/
 echo
 echo "Extracting base into $DESTDIR"
 cd /$distdir/base ; cat base.?? | tar --unlink -xpzf - -C ${DESTDIR:-/}
-cd /$distdir/src ;     sh ./install.sh sys lib
 echo "Extracting kernel into ${DESTDIR}boot"
 cd /$distdir/kernels ; sh ./install.sh generic
 
@@ -280,29 +274,6 @@ cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
 if [ -z "$distdir" ]; then
     zfs destroy $poolname/installdata
 fi
-
-echo 'LOADER_ZFS_SUPPORT=YES' >> /$rootzfs/etc/make.conf
-
-echo
-echo "I will now build the ZFS aware boot-loader, expect some funky compile output and ignore the errors."
-sleep 2
-echo '#!/bin/sh 
-mount -t devfs devfs /dev 
-export DESTDIR="" 
-cd /usr/src/sys/boot/ 
-make -s obj 
-make -s depend 
-make -s
-mkdir -p /usr/share/man/man5
-cd /usr/src/sys/boot/i386/loader; make -s install 
-cd /usr/src/sys/boot/i386/zfsboot; make -s install 
-cd /usr/src/sys/boot/i386/gptzfsboot; make -s install 
-cd /usr/src/sys/boot/i386/pmbr; make -s install 
-umount /dev 
-exit' > /$rootzfs/tmp/chroot-command.sh
-chmod +x /$rootzfs/tmp/chroot-command.sh
-chroot /$rootzfs/ /tmp/chroot-command.sh
-rm /$rootzfs/tmp/chroot-command.sh
 
 # fix usr/share/man/man8
 rm /$rootzfs/usr/share/man/man8
