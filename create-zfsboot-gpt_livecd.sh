@@ -4,7 +4,7 @@
 #
 # DISCLAIMER: Use at your own risk! Always make backups, don't blame me if this renders your system unusable or you lose any data! 
 # 
-# This only works with FreeBSD 8.0 (tested with 8.0-RELEASE), you have been warned!
+# This only works with FreeBSD 8.1 (tested with 8.1-RELEASE), you have been warned!
 #
 # Startup the FreeBSD livefs CD. Go into the Fixit console. Create /var/db if you want to use DHCP. Configure
 # your network settings. Fetch http://anonsvn.h3q.com/s/gpt-zfsroot.sh
