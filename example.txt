@@ -1,5 +1,5 @@
 zfsbsd# uname -rs
-FreeBSD 7.2-STABLE
+FreeBSD 8.1-RELEASE
 
 Lets take a look at our zfs-root setup.
 
@@ -49,6 +49,7 @@ Usage: manageBE create -n <newBE> -s <sourceBE> -p <pool>
 
 zfsbsd# manageBE create -n newBE -s oldBE -p rpool
 Install new kernel with option 'DESTDIR=/rpool/ROOT/newBE/' and run 'manageBE activate -n newBE -p rpool'
+Or make a complete FreeBSD update with 'manageBE src-upgrade -n newBE -p rpool'
 
 The new boot-environment was created, it is not yet activated but mounted on "/rpool/ROOT/newBE/"
 
@@ -93,9 +94,9 @@ zfsbsd# reboot
 After the reboot.
 
 zfsbsd# uname -rs
-FreeBSD 7.2-STABLE
+FreeBSD 8.1-RELEASE
 
-Now the new boot-environment is enable and in use, the old is mounted but not in use anymore.
+Now the new boot-environment is enabled and in use, the old is mounted but not in use anymore.
 
 zfsbsd# manageBE list
 Poolname: rpool
