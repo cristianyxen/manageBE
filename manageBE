@@ -229,9 +229,7 @@ case ${type} in
 	echo '#!/bin/sh
 mount -t devfs devfs /dev
 cd /usr/src
-make -s installkernel
-make -s installworld
-/usr/sbin/mergemaster -U
+make -s installkernel && make -s installworld && /usr/sbin/mergemaster -U
 umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
 
 	chmod +x /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
