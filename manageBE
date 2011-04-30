@@ -161,7 +161,7 @@ case ${type} in
 
         for be_filesystem in `/sbin/zfs list -H -S creation -o name -r $pool/ROOT |grep -v "^$pool/ROOT\$"`; do
 
-            if [ `/sbin/zfs list -H -o freebsd:boot-environment ${be_filesystem}` -eq 1 ]; then
+            if [ `/sbin/zfs list -H -o freebsd:boot-environment ${be_filesystem}` = 1 ]; then
                 be_name=`echo ${be_filesystem}|/usr/bin/sed s:^$pool/ROOT/::`
 
                 be_active='no'	
