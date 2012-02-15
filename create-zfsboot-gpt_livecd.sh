@@ -47,10 +47,17 @@ if [ -z "$poolname" ] || [ -z "$provider" ] ; then
   exit
 fi
 
+RELNUM=`uname -r | cut -d '.' -f1`
+echo $RELNUM
+
 if [ "$distdir" ]; then
-  if [ ! -f "$distdir/base/install.sh" -o ! -f "$distdir/kernels/install.sh" ]; then
-    echo "Sorry, no distribution files found in ${distdir}!"
-    exit
+  if [ "$RELNUM" = "8" -a -f "$distdir/base/install.sh" -a -f "$distdir/kernels/install.sh" ]; then
+    echo "Found distribution files for FreeBSD-8 in ${distdir}!"
+  elif [ "$RELNUM" = "9" -a -f "$distdir/kernel.txz" -a -f "$distdir/base.txz" ]; then
+    echo "Found distribution files for FreeBSD-9 in ${distdir}!"
+  else
+    echo "Could not find distribution files for FreeBSD-${RELNUM} in $distdir!"
+    exit 1
   fi
 fi
 
@@ -181,11 +188,18 @@ done
 echo
 sleep 2
 
-kldload /mnt2/boot/kernel/opensolaris.ko
-kldload /mnt2/boot/kernel/zfs.ko
+if [ "$RELNUM" = "8" ]; then
+ kldload /mnt2/boot/kernel/opensolaris.ko
+ kldload /mnt2/boot/kernel/zfs.ko
+elif [ "$RELNUM" = "9" ]; then
+ kldload /boot/kernel/opensolaris.ko
+ kldload /boot/kernel/zfs.ko
+fi
 
 # we need to create /boot/zfs so zpool.cache can be written.
-mkdir /boot/zfs
+if [ "$RELNUM" = "8" ]; then
+ mkdir /boot/zfs
+fi
 
 # Create the pool and the rootfs
 
@@ -205,6 +219,9 @@ if [ `zpool list -H -o name $poolname` != "$poolname" ]; then
 fi
 
 sleep 2
+
+zpool export $poolname
+zpool import -o cachefile=/tmp/zpool.cache $poolname
 
 echo "Setting checksum to fletcher4"
 zfs set checksum=fletcher4 ${poolname}
@@ -264,12 +281,16 @@ fi
 export DESTDIR=/$rootzfs/
 
 echo
-echo "Extracting base into $DESTDIR"
-cd /$distdir/base ; cat base.?? | tar --unlink -xpzf - -C ${DESTDIR:-/}
-echo "Extracting kernel into ${DESTDIR}boot"
-cd /$distdir/kernels ; sh ./install.sh generic
-
-cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
+if [ "$RELNUM" = "8" ]; then
+ echo "Extracting base into $DESTDIR"
+ cd /$distdir/base ; cat base.?? | tar --unlink -xpzf - -C ${DESTDIR:-/}
+ echo "Extracting kernel into ${DESTDIR}boot"
+ cd /$distdir/kernels ; sh ./install.sh generic
+ cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
+elif [ "$RELNUM" = "9" ]; then
+ for file in base.txz kernel.txz;
+ do (cat $distdir/$file | tar --unlink -xpJf - -C ${DESTDIR:-/}); done
+fi
 
 if [ -z "$distdir" ]; then
     zfs destroy $poolname/installdata
@@ -315,7 +336,7 @@ fi
 echo
 
 # Copy the zpool.cache to the new filesystem
-cp /boot/zfs/zpool.cache /$rootzfs/boot/zfs/zpool.cache
+cp /tmp/zpool.cache /$rootzfs/boot/zfs/zpool.cache
 
 sleep 5
 
