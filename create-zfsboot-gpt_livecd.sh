@@ -284,7 +284,7 @@ if [ -z "$distdir" ]; then
          ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}/*"
         elif [ "RELNUM" = "9" ]; then
          cd /$poolname/installdata/
-         ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}
+         ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}"
         fi
     done
     distdir="/$poolname/installdata"
