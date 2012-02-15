@@ -1,13 +1,17 @@
 #!/bin/sh
 # Philipp Wuensche
 # This script is considered beer ware (http://en.wikipedia.org/wiki/Beerware)
+# modifyed with great help of gkontos from http://www.aisecure.net/2011/05/01/root-on-zfs-freebsd-current/ 
+# by Olaf Klein - monkeytower internet agency http://www.monkeytower.net
 #
 # DISCLAIMER: Use at your own risk! Always make backups, don't blame me if this renders your system unusable or you lose any data! 
 # 
-# This only works with FreeBSD 8.1 (tested with 8.1-RELEASE), you have been warned!
+# This works with FreeBSD 8.1, 8.2 and 9.0 (tested with RELEASE), you have been warned!
 #
-# Startup the FreeBSD livefs CD. Go into the Fixit console. Create /var/db if you want to use DHCP. Configure
-# your network settings. Fetch http://anonsvn.h3q.com/s/gpt-zfsroot.sh
+# For FreeBSD-8, startup the FreeBSD livefs CD. Go into the Fixit console. Create /var/db if you want to use DHCP. Configure your network settings.
+# For FreeBSD-9, startup the FreeBSD DVD image or USB stick, select "Shell". Create /tmp/bsdinstall_etc, add nameserver to /etc/resolv.conf, configure your network settings, go to /tmp.
+#  Fetch http://anonsvn.h3q.com/s/gpt-zfsroot.sh
+#
 # Execute the script with the following parameter:
 #
 # -p sets the geom provider to use, you can use multiple. Add a name for the GPT labels: -p ad4=black -p ad6=white
