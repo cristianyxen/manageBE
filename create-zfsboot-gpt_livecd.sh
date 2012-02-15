@@ -57,7 +57,7 @@ echo $RELNUM
 if [ "$distdir" ]; then
   if [ "$RELNUM" = "8" -a -f "$distdir/base/install.sh" -a -f "$distdir/kernels/install.sh" ]; then
     echo "Found distribution files for FreeBSD-8 in ${distdir}!"
-  elif [ "$RELNUM" = "9" -a -f "$distdir/kernel.txz" -a -f "$distdir/base.txz" ]; then
+  elif [ "$RELNUM" = "9" -a -f "$distdir/kernel.txz" -a -f "$distdir/base.txz" -a -f "$distdir/lib32.txz ]; then
     echo "Found distribution files for FreeBSD-9 in ${distdir}!"
   else
     echo "Could not find distribution files for FreeBSD-${RELNUM} in $distdir!"
@@ -260,7 +260,7 @@ if [ -z "$distdir" ]; then
     if [ "$RELNUM" = "8" ]; then
      packages='base kernels'
     elif [ "$RELNUM" = "9" ]; then
-     packages='base.txz kernel.txz'
+     packages='base.txz kernel.txz lib32.txz'
     fi
     echo "Now installing ${packages} via $ftphost. This may take a while, depending on your network connection."
     zfs create $poolname/installdata
@@ -302,7 +302,7 @@ if [ "$RELNUM" = "8" ]; then
  cd /$distdir/kernels ; sh ./install.sh generic
  cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
 elif [ "$RELNUM" = "9" ]; then
- for file in base.txz kernel.txz;
+ for file in ${packages};
  do (cat $distdir/$file | tar --unlink -xpJf - -C ${DESTDIR:-/}); done
 fi
 
