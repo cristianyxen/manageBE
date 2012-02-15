@@ -269,13 +269,23 @@ if [ -z "$distdir" ]; then
     sleep 2
     arch=`uname -p`
     release=`uname -r`
+    if [ "$RELNUM" = "8" ]; then
+     packages='base kernels'
+    elif [ "$RELNUM" = "9" ]; then
+     packages='base.txz kernel.txz'
+    fi
     echo
     echo "Fetching FreeBSD ${release}-${arch}:"
-    for pkg in base kernels; do
-        mkdir /$poolname/installdata/${pkg}
-        cd /$poolname/installdata/${pkg}
+    for pkg in $packages; do
         echo " -> $pkg"
-        ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}/*"
+        if [ "$RELNUM" = "8" ]; then
+         mkdir /$poolname/installdata/${pkg}
+         cd /$poolname/installdata/${pkg}
+         ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}/*"
+        elif [ "RELNUM" = "9" ]; then
+         cd /$poolname/installdata/
+         ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}
+        fi
     done
     distdir="/$poolname/installdata"
 else
