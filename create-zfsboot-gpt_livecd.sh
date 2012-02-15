@@ -257,7 +257,12 @@ zfs mount $poolname/usr-obj
 
 echo ####################################
 if [ -z "$distdir" ]; then
-    echo "Now installing base, ssys, slib and kernels via $ftphost. This may take a while, depending on your network connection."
+    if [ "$RELNUM" = "8" ]; then
+     packages='base kernels'
+    elif [ "$RELNUM" = "9" ]; then
+     packages='base.txz kernel.txz'
+    fi
+    echo "Now installing ${packages} via $ftphost. This may take a while, depending on your network connection."
     zfs create $poolname/installdata
     cd /$poolname/installdata
     
@@ -269,11 +274,6 @@ if [ -z "$distdir" ]; then
     sleep 2
     arch=`uname -p`
     release=`uname -r`
-    if [ "$RELNUM" = "8" ]; then
-     packages='base kernels'
-    elif [ "$RELNUM" = "9" ]; then
-     packages='base.txz kernel.txz'
-    fi
     echo
     echo "Fetching FreeBSD ${release}-${arch}:"
     for pkg in $packages; do
@@ -282,7 +282,7 @@ if [ -z "$distdir" ]; then
          mkdir /$poolname/installdata/${pkg}
          cd /$poolname/installdata/${pkg}
          ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}/*"
-        elif [ "RELNUM" = "9" ]; then
+        elif [ "$RELNUM" = "9" ]; then
          cd /$poolname/installdata/
          ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}"
         fi
