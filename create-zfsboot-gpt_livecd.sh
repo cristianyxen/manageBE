@@ -57,7 +57,7 @@ echo $RELNUM
 if [ "$distdir" ]; then
   if [ "$RELNUM" = "8" -a -f "$distdir/base/install.sh" -a -f "$distdir/kernels/install.sh" ]; then
     echo "Found distribution files for FreeBSD-8 in ${distdir}!"
-  elif [ "$RELNUM" = "9" -a -f "$distdir/kernel.txz" -a -f "$distdir/base.txz" -a -f "$distdir/lib32.txz ]; then
+  elif [ "$RELNUM" = "9" -a -f "$distdir/kernel.txz" -a -f "$distdir/base.txz" -a -f "$distdir/lib32.txz" ]; then
     echo "Found distribution files for FreeBSD-9 in ${distdir}!"
   else
     echo "Could not find distribution files for FreeBSD-${RELNUM} in $distdir!"
