@@ -30,11 +30,11 @@
 
 ftphost='ftp.freebsd.org'
 
-usage="Usage: create-zfsboot-gpt_livecd.sh -p <geom_provider> -s <swap_partition_size> -S <zfs_partition_size> -n <zpoolname> -m <zpool-raidmode> -d <distdir> -f <ftphost>"
+usage="Usage: create-zfsboot-gpt_livecd.sh -4k -p <geom_provider> -s <swap_partition_size> -S <zfs_partition_size> -n <zpoolname> -m <zpool-raidmode> -d <distdir> -f <ftphost>"
 
 exerr () { echo -e "$*" >&2 ; exit 1; }
 
-while getopts p:s:S:n:f:m:d: arg
+while getopts p:s:S:n:f:m:d:k: arg
 do case ${arg} in
   p) provider="$provider ${OPTARG}";;
   s) swap_partition_size=${OPTARG};;
@@ -43,6 +43,7 @@ do case ${arg} in
   f) ftphost=${OPTARG};;
   m) mode=${OPTARG};;
   d) distdir=${OPTARG};;
+  k) fourk='true';;
   ?) exerr ${usage};;
 esac; done; shift $(( ${OPTIND} - 1 ))
 
@@ -52,7 +53,8 @@ if [ -z "$poolname" ] || [ -z "$provider" ] ; then
 fi
 
 RELNUM=`uname -r | cut -d '.' -f1`
-echo $RELNUM
+echo "Running on FreeBSD-$RELNUM"
+sleep 2
 
 if [ "$distdir" ]; then
   if [ "$RELNUM" = "8" -a -f "$distdir/base/install.sh" -a -f "$distdir/kernels/install.sh" ]; then
@@ -147,7 +149,7 @@ echo "Creating GPT boot partition on disks:"
 for disk in $provider; do
   get_disk_labelname
   echo " ->  ${disk}"
-  gpart add -s 128 -t freebsd-boot $disk > /dev/null
+  gpart add -b 40 -s 1024 -t freebsd-boot $disk > /dev/null
 done
 
 echo
@@ -158,16 +160,16 @@ if [ "$swap_partition_size" ]; then
   for disk in $provider; do
     get_disk_labelname
     echo " ->  ${disk} (Label: ${label})"
-    gpart add -s $swap_partition_size -t freebsd-swap -l swap-${label} ${disk} > /dev/null
+    gpart add -b 2048 -s $swap_partition_size -t freebsd-swap -l swap-${label} ${disk} > /dev/null
   done
 fi
 
 echo
 sleep 2
 
-offset=`gpart show $ref_disk | grep '\- free \-' | awk '{print $1}'`
+offset=`gpart show $ref_disk | grep '\- free \-' | tail -n1 |awk '{print $1}'`
 if [ -z "${zfs_partition_size}" ]; then
-  size=`gpart show $ref_disk | grep '\- free \-' | awk '{print $2}'`
+  size=`gpart show $ref_disk | grep '\- free \-' | tail -n1 |awk '{print $2}'`
 else
   size=${zfs_partition_size}
 fi
@@ -176,7 +178,13 @@ echo "Creating GPT ZFS partition on with size ${size} on disks: "
 for disk in $provider; do
   get_disk_labelname
   echo " ->  ${disk} (Label: ${label})"
-  gpart add -b $offset -s $size -t freebsd-zfs -l system-${label} ${disk} > /dev/null
+  gpart add -t freebsd-zfs -b $offset -s $size -l system-${label} ${disk} > /dev/null
+  if [ "$fourk" ]; then
+   echo "Forcing 4k sectorsize for $disk"
+   gnop create -S 4096 /dev/gpt/system-${label}
+   label="${label}.nop"
+   fourk=''
+  fi
   labellist="${labellist} gpt/system-${label}"
 done
 
@@ -186,7 +194,7 @@ sleep 2
 # Make first partition active so the BIOS boots from it
 for disk in $provider; do
   get_disk_labelname
-  echo 'a 1' | fdisk -f - $disk > /dev/null 2>&1
+#  echo 'a 1' | fdisk -f - $disk > /dev/null 2>&1
 done
 
 echo
@@ -208,13 +216,13 @@ fi
 # Create the pool and the rootfs
 
 if [ "$mode" = "raidz" ]; then
-  zpool create -f $poolname raidz ${labellist}
+  zpool create -m /tmp/$poolname -f $poolname raidz ${labellist}
 fi
 if [ "$mode" = "mirror" ]; then
-  zpool create -f $poolname mirror ${labellist}
+  zpool create -m /tmp/$poolname -f $poolname mirror ${labellist}
 fi
 if [ "$mode" = "stripe" ]; then
-  zpool create -f $poolname ${labellist}
+  zpool create -m /tmp/$poolname -f $poolname ${labellist}
 fi
 
 if [ `zpool list -H -o name $poolname` != "$poolname" ]; then
@@ -240,33 +248,32 @@ for filesystem in usr-src usr-obj usr-local tmp; do
    echo "Creating $poolname/$filesystem"
    zfs create $poolname/$filesystem
    if [ "$filesystem" = "tmp" ]; then
-     chmod 1777 /$poolname/tmp
+     chmod 1777 /tmp/$poolname/tmp
    fi
    zfs umount $poolname/$filesystem
    _filesystem=`echo $filesystem | sed s:-:\/:g`
    zfs set mountpoint=/${_filesystem} $poolname/${filesystem}
 done
 
-mkdir /$rootzfs/usr
+mkdir /tmp/$rootzfs/usr
 
-zfs set mountpoint=/$rootzfs/usr/src $poolname/usr-src
-zfs mount $poolname/usr-src
+zfs mount -o mountpoint=/tmp/$rootzfs/usr/src $poolname/usr-src
 
-zfs set mountpoint=/$rootzfs/usr/obj $poolname/usr-obj
-zfs mount $poolname/usr-obj
+zfs mount -o mountpoint=/tmp/$rootzfs/usr/obj $poolname/usr-obj
+
+if [ "$RELNUM" = "8" ]; then
+ packages='base kernels'
+elif [ "$RELNUM" = "9" ]; then
+ packages='base.txz kernel.txz lib32.txz'
+fi
 
 echo ####################################
 if [ -z "$distdir" ]; then
-    if [ "$RELNUM" = "8" ]; then
-     packages='base kernels'
-    elif [ "$RELNUM" = "9" ]; then
-     packages='base.txz kernel.txz lib32.txz'
-    fi
     echo "Now installing ${packages} via $ftphost. This may take a while, depending on your network connection."
     zfs create $poolname/installdata
-    cd /$poolname/installdata
+    cd /tmp/$poolname/installdata
     
-    if [ `pwd` != "/$poolname/installdata" ]; then
+    if [ `pwd` != "/tmp/$poolname/installdata" ]; then
         echo "ERROR: Could not change directoy to /$poolname/installdata. Aborting."
         exit
     fi
@@ -279,20 +286,20 @@ if [ -z "$distdir" ]; then
     for pkg in $packages; do
         echo " -> $pkg"
         if [ "$RELNUM" = "8" ]; then
-         mkdir /$poolname/installdata/${pkg}
-         cd /$poolname/installdata/${pkg}
+         mkdir /tmp/$poolname/installdata/${pkg}
+         cd /tmp/$poolname/installdata/${pkg}
          ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}/*"
         elif [ "$RELNUM" = "9" ]; then
-         cd /$poolname/installdata/
+         cd /tmp/$poolname/installdata/
          ftp -V "$ftphost:pub/FreeBSD/releases/${arch}/${release}/${pkg}"
         fi
     done
-    distdir="/$poolname/installdata"
+    distdir="/tmp/$poolname/installdata"
 else
     echo "Using distribution packages from $distdir"
 fi
 
-export DESTDIR=/$rootzfs/
+export DESTDIR=/tmp/$rootzfs/
 
 echo
 if [ "$RELNUM" = "8" ]; then
@@ -300,25 +307,27 @@ if [ "$RELNUM" = "8" ]; then
  cd /$distdir/base ; cat base.?? | tar --unlink -xpzf - -C ${DESTDIR:-/}
  echo "Extracting kernel into ${DESTDIR}boot"
  cd /$distdir/kernels ; sh ./install.sh generic
- cd /$rootzfs/boot ; cp -rp GENERIC/* /$rootzfs/boot/kernel/
-elif [ "$RELNUM" = "9" ]; then
- for file in ${packages};
- do (cat $distdir/$file | tar --unlink -xpJf - -C ${DESTDIR:-/}); done
+ cd /tmp/$rootzfs/boot ; cp -rp GENERIC/* /tmp/$rootzfs/boot/kernel/; cd -
+fi
+
+if [ "$RELNUM" = "9" ]; then
+ echo "Installing following packages: $packages"
+ for file in ${packages}; do
+  echo "Extracting $file into $DESTDIR"
+  cat $distdir/$file | tar --unlink -xpJf - -C ${DESTDIR:-/}
+ done
 fi
 
 if [ -z "$distdir" ]; then
     zfs destroy $poolname/installdata
 fi
 
-# fix usr/share/man/man8
-rm /$rootzfs/usr/share/man/man8
-
 echo
 echo "Installing new bootcode on disks: "
 for disk in $provider; do
   get_disk_labelname
   echo " ->  ${disk}"
-  gpart bootcode -b /$rootzfs/boot/pmbr -p /$rootzfs/boot/gptzfsboot -i 1 $disk > /dev/null
+  gpart bootcode -b /tmp/$rootzfs/boot/pmbr -p /tmp/$rootzfs/boot/gptzfsboot -i 1 $disk > /dev/null
 done
 echo
 
@@ -334,23 +343,26 @@ zfs set mountpoint=/usr/obj $poolname/usr-obj
 zpool set bootfs=$rootzfs $poolname
 
 # We still need to tell the kernel from where to mount its root-filesystem
-echo 'zfs_load="YES"' >> /$rootzfs/boot/loader.conf
-echo "vfs.root.mountfrom=\"zfs:$rootzfs\"" >> /$rootzfs/boot/loader.conf
-echo 'zfs_enable="YES"' >> /$rootzfs/etc/rc.conf
-touch /$rootzfs/etc/fstab
+echo 'zfs_load="YES"' >> /tmp/$rootzfs/boot/loader.conf
+echo "vfs.root.mountfrom=\"zfs:$rootzfs\"" >> /tmp/$rootzfs/boot/loader.conf
+echo 'zfs_enable="YES"' >> /tmp/$rootzfs/etc/rc.conf
+touch /tmp/$rootzfs/etc/fstab
 
 if [ "$swap_partition_size" ]; then
   echo "Adding swap partitions in fstab:"
   for disk in $provider; do
     get_disk_labelname
     echo " ->  /dev/gpt/swap-${label}"
-    echo "/dev/gpt/swap-${label} none swap sw 0 0" >> /$rootzfs/etc/fstab
+    echo "/dev/gpt/swap-${label} none swap sw 0 0" >> /tmp/$rootzfs/etc/fstab
   done
 fi
 echo
 
 # Copy the zpool.cache to the new filesystem
-cp /tmp/zpool.cache /$rootzfs/boot/zfs/zpool.cache
+cp /tmp/zpool.cache /tmp/$rootzfs/boot/zfs/zpool.cache
+
+zfs umount -a
+zfs set mountpoint=/$poolname $poolname
 
 sleep 5
 
