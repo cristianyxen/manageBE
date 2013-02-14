@@ -21,6 +21,7 @@
 # -f sets the ftp-server used for getting the freebsd packages, default is ftp.freebsd.org
 # -m sets the zpool raid-mode, stripe (only single disk), mirror (at least two disks) and raidz (at least three disks)
 # -d sets local directory to get distribution packages from
+# -k4 use 4k sectorsize for newer disks
 #
 # You can use more than one device, creating a mirror. To specify more than one device, use multiple -p options. 
 # eg. create-zfsboot-gpt_livecd.sh -p ad0 -p ad1 -s 512m -n tank
@@ -30,7 +31,7 @@
 
 ftphost='ftp.freebsd.org'
 
-usage="Usage: create-zfsboot-gpt_livecd.sh -4k -p <geom_provider> -s <swap_partition_size> -S <zfs_partition_size> -n <zpoolname> -m <zpool-raidmode> -d <distdir> -f <ftphost>"
+usage="Usage: create-zfsboot-gpt_livecd.sh -k4 -p <geom_provider> -s <swap_partition_size> -S <zfs_partition_size> -n <zpoolname> -m <zpool-raidmode> -d <distdir> -f <ftphost>"
 
 exerr () { echo -e "$*" >&2 ; exit 1; }
 
@@ -361,6 +362,7 @@ echo
 # Copy the zpool.cache to the new filesystem
 cp /tmp/zpool.cache /tmp/$rootzfs/boot/zfs/zpool.cache
 
+cd `dirname $0`
 zfs umount -a
 zfs set mountpoint=/$poolname $poolname
 
