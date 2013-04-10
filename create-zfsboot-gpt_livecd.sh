@@ -204,9 +204,11 @@ sleep 2
 if [ "$RELNUM" = "8" ]; then
  kldload /mnt2/boot/kernel/opensolaris.ko
  kldload /mnt2/boot/kernel/zfs.ko
+ kldload /mnt2/boot/kernel/geom_mirror.ko
 elif [ "$RELNUM" = "9" ]; then
  kldload /boot/kernel/opensolaris.ko
  kldload /boot/kernel/zfs.ko
+ kldload /boot/kernel/geom_mirror.ko
 fi
 
 # we need to create /boot/zfs so zpool.cache can be written.
@@ -345,17 +347,21 @@ zpool set bootfs=$rootzfs $poolname
 
 # We still need to tell the kernel from where to mount its root-filesystem
 echo 'zfs_load="YES"' >> /tmp/$rootzfs/boot/loader.conf
+echo 'geom_mirror_load="YES"' >> /tmp/$rootzfs/boot/loader.conf
 echo "vfs.root.mountfrom=\"zfs:$rootzfs\"" >> /tmp/$rootzfs/boot/loader.conf
 echo 'zfs_enable="YES"' >> /tmp/$rootzfs/etc/rc.conf
 touch /tmp/$rootzfs/etc/fstab
 
 if [ "$swap_partition_size" ]; then
-  echo "Adding swap partitions in fstab:"
+  echo "Creating geom mirrord swap device /dev/mirror/swap using devices:"
   for disk in $provider; do
     get_disk_labelname
     echo " ->  /dev/gpt/swap-${label}"
-    echo "/dev/gpt/swap-${label} none swap sw 0 0" >> /tmp/$rootzfs/etc/fstab
+    labels="${labels} gpt/swap-${label}"
   done
+  gmirror label -F -b round-robin swap ${labels}
+  echo "Adding swap partition in fstab:"
+  echo "/dev/mirror/swap none swap sw 0 0" >> /tmp/$rootzfs/etc/fstab
 fi
 echo
 
