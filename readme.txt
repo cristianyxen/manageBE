@@ -1,4 +1,3 @@
-{{{
 # manageBE is considered beer ware (http://en.wikipedia.org/wiki/Beerware)
 # Written by Philipp Wuensche (cryx-manageBE@h3q.com)
 
@@ -39,4 +38,3 @@ else
 
 
 DISCLAIMER: Always make backups, don't blame me if this renders your system unusable or you lose any data!
-}}}
