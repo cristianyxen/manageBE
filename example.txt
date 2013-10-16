@@ -1,3 +1,4 @@
+{{{
 zfsbsd# uname -rs
 FreeBSD 8.1-RELEASE
 
@@ -160,3 +161,4 @@ rpool/ROOT on /rpool/ROOT (zfs, local)
 rpool/tmp on /tmp (zfs, local)
 rpool/usr-local on /usr/local (zfs, local)
 rpool/var on /var (zfs, local)
+}}}
