@@ -254,10 +254,10 @@ umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
 
         check_for_be_existence
         
-        chroot /${bootfs} mount -t devfs devfs /dev
-        chroot /${bootfs} /usr/sbin/freebsd-update fetch
-        chroot /${bootfs} /usr/sbin/freebsd-update install > /dev/null
-        chroot /${bootfs} umount /dev
+        chroot /${pool}/ROOT/${bootfs} mount -t devfs devfs /dev
+        chroot /${pool}/ROOT/${bootfs} /usr/sbin/freebsd-update fetch
+        chroot /${pool}/ROOT/${bootfs} /usr/sbin/freebsd-update install > /dev/null
+        chroot /${pool}/ROOT/${bootfs} umount /dev
 
         echo "Please activate ${bootfs} via manageBE and reboot."
     ;;
@@ -276,12 +276,12 @@ umount /dev' > /${pool}/ROOT/${bootfs}/tmp/manageBE-upgrade.sh
 
         check_for_be_existence
         
-        chroot /${bootfs} mount -t devfs devfs /dev
-        chroot /${bootfs} /usr/sbin/freebsd-update upgrade -r ${release}
-        chroot /${bootfs} /usr/sbin/freebsd-update install > /dev/null
-        chroot /${bootfs} umount /dev
+        chroot /${pool}/ROOT/${bootfs} mount -t devfs devfs /dev
+        chroot /${pool}/ROOT/${bootfs} /usr/sbin/freebsd-update upgrade -r ${release}
+        chroot /${pool}/ROOT/${bootfs} /usr/sbin/freebsd-update install > /dev/null
+        chroot /${pool}/ROOT/${bootfs} umount /dev
 
-        echo "Please activate ${bootfs} via manageBE and reboot. After rebooting, freebsd-update needs to be run again to install the new userland components, and the system needs to be rebooted again"
+        echo "Please activate ${bootfs} via manageBE and reboot. After rebooting, 'freebsd-update install' needs to be run again to install the new userland components, and the system needs to be rebooted again."
     ;;
     *)
         echo echo "Usage: ${mgm} [activate|create|delete|list|src-upgrade|freebsd-update|freebsd-upgrade] {params}"
